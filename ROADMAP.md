@@ -4,6 +4,10 @@ Locked-in stack: Kotlin + Jetpack Compose (Material 3) · FastAPI on Render ·
 Gemini API via Google AI Studio · on-device Android SpeechRecognizer + TextToSpeech ·
 Firebase Auth + Firestore · target: Play Store release.
 
+Content structure, curriculum framework, and the full feature vision live in
+[`CURRICULUM.md`](./CURRICULUM.md) — read it before building Phase 1's lesson
+content model or Phase 2/3 features. This file says *when*; that one says *what*.
+
 Tracking status here so every session picks up exactly where the last one left off.
 
 ---
@@ -18,17 +22,18 @@ Tracking status here so every session picks up exactly where the last one left o
 - [x] Create Firebase project → enable Authentication (Email/Password + Google) + Firestore (Spark/free plan)
 - [x] Add Android app to Firebase project → `google-services.json` placed in `android/app/`, debug SHA-1/SHA-256 registered
 - [x] Google Services Gradle plugin + Firebase Auth/Firestore + Credential Manager (Google Sign-In) dependencies wired in; `./gradlew assembleDebug` succeeds
-- [ ] Create Render account, connect GitHub (service creation happens when backend is deploy-ready)
+- [x] Create Render account (Google auth sign-in) — service creation still pending until backend is deploy-ready
 
 ## Phase 1 — MVP core loop (one lesson track, ~10-15 lessons)
 
 - [ ] App theming: Material 3 color scheme/typography for Uccharan (not the default purple template)
 - [ ] Navigation graph: Home/Roadmap → Lesson screen → Result/Feedback screen
-- [ ] Lesson content model: simple JSON/local data class list of target sentences (no CMS yet)
-- [ ] Firebase Auth: anonymous or email sign-in (minimum viable — don't over-build this yet)
+- [ ] Lesson content model: `speak_repeat` type only, but full schema from `CURRICULUM.md` §2 — seed ~10-15 Foundations-track lessons directly into Firestore (no CMS/authoring UI yet, just seeded documents)
+- [ ] Firebase Auth: Email/Password + Google Sign-In (deps already wired — build the actual sign-in screen)
 - [ ] Mic recording screen: request `RECORD_AUDIO` permission, use `SpeechRecognizer` to capture attempt
 - [ ] Wire recorded transcript → backend `/api/v1/correct` → show feedback (correct/incorrect + explanation)
 - [ ] On-device `TextToSpeech` reads the target sentence (and corrected version) aloud
+- [ ] Log every attempt (target, transcript, correct/not, timestamp) to Firestore — feeds Phase 3 weak-point analytics for free later
 - [ ] Progress write to Firestore on lesson completion
 - [ ] Unit tests: ViewModels, repository layer
 - [ ] Compose UI tests: the core record → feedback → complete flow
@@ -36,16 +41,32 @@ Tracking status here so every session picks up exactly where the last one left o
 
 ## Phase 2 — Roadmap & structure
 
-- [ ] Multiple tracks/levels
+- [ ] Placement test (adaptive, drops learner into the right track/unit)
+- [ ] Multiple tracks/levels (Foundations / Everyday Fluency / Professional & Exam Mastery — see `CURRICULUM.md` §1)
 - [ ] Visual roadmap/path screen showing progress
-- [ ] Lesson unlocking logic, streaks
+- [ ] Lesson unlocking logic, streaks + streak-freeze
+- [ ] SRS vocabulary review tab (Leitner-style, see `CURRICULUM.md` §3)
+- [ ] Minimal-pair pronunciation drills (`minimal_pair` lesson type)
 
 ## Phase 3 — AI depth & polish
 
-- [ ] Free-form conversation practice mode
+- [ ] Roleplay/conversation mode with seeded scenarios (see `CURRICULUM.md` §5)
+- [ ] Slow-motion shadowing mode
 - [ ] Translation-on-tap for unfamiliar words
+- [ ] Listening dictation exercises
 - [ ] Word-level error highlighting in feedback UI
+- [ ] Weak-point analytics screen (derived from logged attempt history)
+- [ ] **Decision point**: evaluate adding Azure Pronunciation Assessment for real phoneme-level scoring (see `CURRICULUM.md` §4 for the honest gap vs current approach) — only if pronunciation becomes the differentiator worth the added cost/complexity
 - [ ] (Optional upgrade) Cloud Text-to-Speech Neural2 voices, once GCP billing is sorted calmly
+
+## Phase 3.5 — Differentiators (prioritize by real user feedback, don't pre-build)
+
+- [ ] Voice journal (daily recording, track progress over time)
+- [ ] IELTS/TOEFL speaking-section simulator
+- [ ] Idioms & slang micro-lessons
+- [ ] Adaptive difficulty from error-rate trend
+- [ ] Home-screen widget: word/phrase of the day
+- [ ] Accent target selection (US/UK/Australian)
 
 ## Phase 4 — Production hardening for Play Store
 
@@ -59,7 +80,9 @@ Tracking status here so every session picks up exactly where the last one left o
 
 ---
 
-**Current focus: finishing Phase 0.** Next concrete step: create the Render account (last Phase 0 item), then move into Phase 1 screens.
+**Phase 0 complete.** Current focus: Phase 1 — starting with the lesson content
+model (schema-driven, seeded into Firestore per `CURRICULUM.md` §2) and the
+sign-in screen, then the mic → correct → feedback loop.
 
 **Dev environment note:** if `./gradlew` fails on this machine with `SSLHandshakeException` /
 "PKIX path building failed" while resolving plugins, that's this network/JVM's trust
