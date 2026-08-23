@@ -51,6 +51,7 @@ Tracking status here so every session picks up exactly where the last one left o
 - [ ] Privacy Policy page (mic audio + speech data sent to Gemini — must disclose)
 - [ ] Play Console Data Safety form
 - [ ] Release signing (upload key), R8/ProGuard rules
+- [ ] Add release keystore's SHA-1/SHA-256 to Firebase (Google Sign-In breaks in release builds otherwise — debug fingerprints were added in Phase 0)
 - [ ] Closed testing track before public release
 - [ ] Firebase Crashlytics wired in, basic Render uptime check
 - [ ] Render upgraded off free tier (removes cold-start sleep) before real users land
