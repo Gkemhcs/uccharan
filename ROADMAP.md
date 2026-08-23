@@ -14,7 +14,7 @@ Tracking status here so every session picks up exactly where the last one left o
 - [x] Package fixed to `com.uccharan.app`
 - [x] FastAPI backend scaffolded: `/health`, `/api/v1/correct` (Gemini-backed), tests passing
 - [x] Root Git repo initialized, first commit made
-- [ ] Push repo to GitHub
+- [x] Push repo to GitHub (https://github.com/Gkemhcs/uccharan)
 - [ ] Create Firebase project → enable Authentication + Firestore (Spark/free plan)
 - [ ] Add Android app to Firebase project → drop `google-services.json` into `android/app/`
 - [ ] Create Render account, connect GitHub (service creation happens when backend is deploy-ready)
@@ -57,4 +57,4 @@ Tracking status here so every session picks up exactly where the last one left o
 
 ---
 
-**Current focus: finishing Phase 0.** Next concrete step: push to GitHub.
+**Current focus: finishing Phase 0.** Next concrete step: create the Firebase project (Auth + Firestore).
