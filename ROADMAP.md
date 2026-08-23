@@ -15,8 +15,9 @@ Tracking status here so every session picks up exactly where the last one left o
 - [x] FastAPI backend scaffolded: `/health`, `/api/v1/correct` (Gemini-backed), tests passing
 - [x] Root Git repo initialized, first commit made
 - [x] Push repo to GitHub (https://github.com/Gkemhcs/uccharan)
-- [ ] Create Firebase project → enable Authentication + Firestore (Spark/free plan)
-- [ ] Add Android app to Firebase project → drop `google-services.json` into `android/app/`
+- [x] Create Firebase project → enable Authentication (Email/Password + Google) + Firestore (Spark/free plan)
+- [x] Add Android app to Firebase project → `google-services.json` placed in `android/app/`, debug SHA-1/SHA-256 registered
+- [x] Google Services Gradle plugin + Firebase Auth/Firestore + Credential Manager (Google Sign-In) dependencies wired in; `./gradlew assembleDebug` succeeds
 - [ ] Create Render account, connect GitHub (service creation happens when backend is deploy-ready)
 
 ## Phase 1 — MVP core loop (one lesson track, ~10-15 lessons)
@@ -58,4 +59,12 @@ Tracking status here so every session picks up exactly where the last one left o
 
 ---
 
-**Current focus: finishing Phase 0.** Next concrete step: create the Firebase project (Auth + Firestore).
+**Current focus: finishing Phase 0.** Next concrete step: create the Render account (last Phase 0 item), then move into Phase 1 screens.
+
+**Dev environment note:** if `./gradlew` fails on this machine with `SSLHandshakeException` /
+"PKIX path building failed" while resolving plugins, that's this network/JVM's trust
+store, not the project. Fix lives in `~/.gradle/gradle.properties` (machine-local,
+not committed) — points the JVM at a merged trust store
+(`~/.gradle/uccharan-truststore/merged-cacerts`, built from the JBR's default CAs +
+macOS's trusted roots) with `-Dcom.sun.security.enableAIAcaIssuers=true` for hosts
+(like dl.google.com) that send an incomplete certificate chain.
