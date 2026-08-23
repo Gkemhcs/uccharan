@@ -18,6 +18,22 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        // TEMPORARY: cloudflared quick tunnel to local dev backend, while Render
+        // deploy is being sorted out. This URL changes every time the tunnel is
+        // restarted (see backend/README.md) — replace with the real Render URL
+        // once that's deployed, and physical-device testing should use whichever
+        // of these is actually reachable (10.0.2.2 only works on the emulator).
+        buildConfigField("String", "BACKEND_BASE_URL", "\"https://pound-gain-defeat-minneapolis.trycloudflare.com\"")
+
+        // Web-application OAuth client ID from google-services.json (oauth_client
+        // type 3) — required by Credential Manager's GetGoogleIdOption. Not a
+        // secret (it's a public identifier, safe to commit), unlike the JSON file.
+        buildConfigField(
+            "String",
+            "GOOGLE_WEB_CLIENT_ID",
+            "\"362298747158-6eov8as57pdr438ko7jo46n3hq6kocla.apps.googleusercontent.com\"",
+        )
     }
 
     buildTypes {
@@ -33,6 +49,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 
@@ -40,6 +57,7 @@ dependencies {
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.compose.material3)
+    implementation(libs.androidx.compose.material.icons.extended)
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.ui.graphics)
     implementation(libs.androidx.compose.ui.tooling.preview)
@@ -56,7 +74,21 @@ dependencies {
     implementation(libs.androidx.credentials.play.services.auth)
     implementation(libs.googleid)
 
+    // Navigation + ViewModel/state in Compose
+    implementation(libs.androidx.navigation.compose)
+    implementation(libs.androidx.lifecycle.viewmodel.compose)
+    implementation(libs.androidx.lifecycle.runtime.compose)
+
+    // Coroutines (+ .await() bridge for Firebase's Task-based APIs)
+    implementation(libs.kotlinx.coroutines.android)
+    implementation(libs.kotlinx.coroutines.play.services)
+
+    // Backend HTTP calls — no codegen, deliberately simple for this app's size
+    implementation(libs.okhttp)
+
     testImplementation(libs.junit)
+    testImplementation(libs.mockk)
+    testImplementation(libs.kotlinx.coroutines.test)
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     androidTestImplementation(libs.androidx.espresso.core)
