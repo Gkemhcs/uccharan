@@ -210,6 +210,38 @@ spec now.
 
 ---
 
+## 6.5 Native language personalization (built, backend-side)
+
+A real differentiator, not a nice-to-have: none of ELSA/Speak/Duolingo do
+deep cultural personalization for Indian regional languages. Two pieces,
+both live in `/api/v1/correct` now:
+
+- **Warm, native address**: onboarding asks how the learner wants to be
+  addressed. For Telugu specifically, the real cultural pattern is worth
+  surfacing as an option — Telugu parents often affectionately call a son
+  *"Nanna"* (literally "father," used as an endearment) and a daughter
+  *"Amma"* ("mother," same pattern). Offer this as a suggested option
+  alongside their real name or a neutral default — **always a user choice,
+  never assumed** from a language selection alone.
+- **Bilingual explanation**: when `native_language` is set (e.g. "Telugu"),
+  the correction response includes a `native_explanation` field — not a
+  transliteration, an actual natural explanation a patient native-speaking
+  tutor would give. Verified live: for "have went" → "have been," Gemini
+  produced *"నాన్నా, షాప్‌కి వెళ్లి వచ్చానని చెప్పేటప్పుడు 'have went' అని
+  కాకుండా 'have been' అని చెప్పాలి సుమా!"* — genuinely natural Telugu, not
+  stiff machine translation.
+
+Generalizes beyond Telugu — `native_language` accepts any language name
+Gemini understands (Hindi, Tamil, Kannada, Marathi, Bengali, …). Telugu is
+just the first one we've verified end-to-end. Address-term suggestions
+(the Nanna/Amma pattern) are Telugu-specific cultural knowledge; other
+languages can get their own suggested-term sets later if/when there's
+signal they'd help, rather than guessing all of them upfront.
+
+Android side still pending (Phase 1): onboarding screen asks native
+language + preferred address term once, stores both in the user's Firestore
+profile, and every `/api/v1/correct` call after that includes them.
+
 ## 7. What this changes in Phase 1, concretely
 
 - Lesson content model: build against the schema in §2 from the start

@@ -27,3 +27,39 @@ def test_parse_response_falls_back_gracefully_on_malformed_output():
 
     assert result.is_correct is False
     assert "couldn't evaluate" in result.feedback
+
+
+def test_parse_response_extracts_native_explanation_when_present():
+    result = GeminiService._parse_response(
+        "CORRECT: no\nFEEDBACK: Use 'went' not 'go'.\nNATIVE_EXPLANATION: 'went' vaadali, 'go' kaadu."
+    )
+
+    assert result.native_explanation == "'went' vaadali, 'go' kaadu."
+
+
+def test_parse_response_native_explanation_defaults_to_none():
+    result = GeminiService._parse_response("CORRECT: yes\nFEEDBACK: Perfect!")
+
+    assert result.native_explanation is None
+
+
+def test_check_pronunciation_attempt_includes_address_and_native_language_in_prompt(mocker):
+    settings = mocker.Mock(google_api_key="test-key", gemini_model="gemini-3.6-flash")
+    service = GeminiService(settings)
+
+    fake_response = mocker.Mock(text="CORRECT: yes\nFEEDBACK: Great job!\nNATIVE_EXPLANATION: Bagundi!")
+    mock_generate = mocker.patch.object(
+        service._client.models, "generate_content", return_value=fake_response
+    )
+
+    service.check_pronunciation_attempt(
+        target_sentence="I am happy.",
+        spoken_text="I am happy.",
+        preferred_address_term="Nanna",
+        native_language="Telugu",
+    )
+
+    sent_prompt = mock_generate.call_args.kwargs["contents"]
+    assert "Nanna" in sent_prompt
+    assert "Telugu" in sent_prompt
+    assert "NATIVE_EXPLANATION" in sent_prompt

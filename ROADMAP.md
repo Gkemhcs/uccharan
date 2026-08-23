@@ -29,9 +29,11 @@ Tracking status here so every session picks up exactly where the last one left o
 - [ ] App theming: Material 3 color scheme/typography for Uccharan (not the default purple template)
 - [ ] Navigation graph: Home/Roadmap → Lesson screen → Result/Feedback screen
 - [ ] Lesson content model: `speak_repeat` type only, but full schema from `CURRICULUM.md` §2 — seed ~10-15 Foundations-track lessons directly into Firestore (no CMS/authoring UI yet, just seeded documents)
+- [x] Backend: native language personalization — `/api/v1/correct` accepts `preferred_address_term` + `native_language`, returns bilingual `native_explanation`; verified live with Telugu (see `CURRICULUM.md` §6.5)
 - [ ] Firebase Auth: Email/Password + Google Sign-In (deps already wired — build the actual sign-in screen)
+- [ ] Onboarding: ask native language + preferred address term (suggest Telugu Nanna/Amma pattern when Telugu selected), store in Firestore user profile
 - [ ] Mic recording screen: request `RECORD_AUDIO` permission, use `SpeechRecognizer` to capture attempt
-- [ ] Wire recorded transcript → backend `/api/v1/correct` → show feedback (correct/incorrect + explanation)
+- [ ] Wire recorded transcript → backend `/api/v1/correct` (pass stored native language/address prefs) → show feedback (correct/incorrect + English explanation + native-language explanation when set)
 - [ ] On-device `TextToSpeech` reads the target sentence (and corrected version) aloud
 - [ ] Log every attempt (target, transcript, correct/not, timestamp) to Firestore — feeds Phase 3 weak-point analytics for free later
 - [ ] Progress write to Firestore on lesson completion
