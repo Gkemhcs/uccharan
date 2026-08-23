@@ -26,20 +26,20 @@ Tracking status here so every session picks up exactly where the last one left o
 
 ## Phase 1 — MVP core loop (one lesson track, ~10-15 lessons)
 
-- [ ] App theming: Material 3 color scheme/typography for Uccharan (not the default purple template)
-- [ ] Navigation graph: Home/Roadmap → Lesson screen → Result/Feedback screen
-- [ ] Lesson content model: `speak_repeat` type only, but full schema from `CURRICULUM.md` §2 — seed ~10-15 Foundations-track lessons directly into Firestore (no CMS/authoring UI yet, just seeded documents)
+- [x] App theming: real Material 3 identity — teal/amber brand colors, Newsreader (serif, headlines/lesson sentences) + Plus Jakarta Sans (UI) bundled as static fonts, gradient buttons/icons, layered shadows. Design canvas: see the "Uccharan Design System" artifact (published this session) for the reference mockups; implementation matches it closely, verified on-device
+- [x] Navigation graph: SignIn/PhoneSignIn → Onboarding → Home/Roadmap → Lesson screen (idle/listening/feedback states)
+- [ ] Lesson content model: `speak_repeat` type only, but full schema from `CURRICULUM.md` §2 — 10 Foundations-track lessons seeded into Firestore via `backend/scripts/seed_lessons.py` (real service-account-based seeding still pending; current seed used test-mode rules)
 - [x] Backend: native language personalization — `/api/v1/correct` accepts `preferred_address_term` + `native_language`, returns bilingual `native_explanation`; verified live with Telugu (see `CURRICULUM.md` §6.5)
-- [ ] Firebase Auth: Email/Password + Google Sign-In (deps already wired — build the actual sign-in screen)
-- [ ] Onboarding: ask native language + preferred address term (suggest Telugu Nanna/Amma pattern when Telugu selected), store in Firestore user profile
-- [ ] Mic recording screen: request `RECORD_AUDIO` permission, use `SpeechRecognizer` to capture attempt
-- [ ] Wire recorded transcript → backend `/api/v1/correct` (pass stored native language/address prefs) → show feedback (correct/incorrect + English explanation + native-language explanation when set)
-- [ ] On-device `TextToSpeech` reads the target sentence (and corrected version) aloud
-- [ ] Log every attempt (target, transcript, correct/not, timestamp) to Firestore — feeds Phase 3 weak-point analytics for free later
-- [ ] Progress write to Firestore on lesson completion
-- [ ] Unit tests: ViewModels, repository layer
-- [ ] Compose UI tests: the core record → feedback → complete flow
-- [ ] **Milestone: one full lesson playable end-to-end on a real device, no crashes**
+- [x] Firebase Auth: Email/Password + Google Sign-In + Phone (OTP) — all three wired and UI built
+- [x] Onboarding: native language + preferred address term (Telugu Nanna/Amma suggestion), stored in Firestore user profile — verified on-device
+- [x] Mic recording screen: `RECORD_AUDIO` permission flow + `SpeechRecognizer` — verified on-device (idle + listening states)
+- [x] Wire recorded transcript → backend `/api/v1/correct` → feedback card (English + native-language explanation) — verified live end-to-end with real Gemini responses
+- [x] On-device `TextToSpeech` reads the target sentence aloud
+- [ ] Log every attempt (target, transcript, correct/not, timestamp) to Firestore — feeds Phase 3 weak-point analytics for free later (not yet wired — `logAttempt` exists in `LessonRepository` but isn't called from `LessonViewModel` yet)
+- [x] Progress write to Firestore on lesson completion (`markLessonComplete` + `addXp`), plus real sequential lesson-unlock logic (a lesson stays locked until the previous one is completed) — matches the design's locked/active/completed states
+- [x] Unit tests: ViewModels, repository-adjacent logic — 23 passing (auth, onboarding, home incl. unlock logic, lesson, phone sign-in, correction API client)
+- [ ] Compose UI tests: the core record → feedback → complete flow (not started — manual on-device verification done instead so far)
+- [ ] **Milestone: one full lesson playable end-to-end on a real device, no crashes** — verified through listening state; full correct/incorrect feedback round-trip verified separately via curl against the live backend, not yet via real mic audio on-device (emulator has no real audio input)
 
 ## Phase 2 — Roadmap & structure
 
@@ -82,9 +82,11 @@ Tracking status here so every session picks up exactly where the last one left o
 
 ---
 
-**Phase 0 complete.** Current focus: Phase 1 — starting with the lesson content
-model (schema-driven, seeded into Firestore per `CURRICULUM.md` §2) and the
-sign-in screen, then the mic → correct → feedback loop.
+**Phase 0 complete. Phase 1 core loop built, styled, and verified on-device.**
+Remaining before the Phase 1 milestone is fully closed: attempt logging to
+Firestore (trivial, just not wired yet), a real (non-test-mode) Firestore
+seeding path for lessons, Compose UI tests, and a real-device mic test with
+actual audio (only tested via emulator + curl so far, for the reasons above).
 
 **Dev environment note:** if `./gradlew` fails on this machine with `SSLHandshakeException` /
 "PKIX path building failed" while resolving plugins, that's this network/JVM's trust

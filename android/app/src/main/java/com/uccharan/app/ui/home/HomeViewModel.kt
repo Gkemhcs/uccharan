@@ -16,7 +16,14 @@ data class HomeUiState(
     val lessons: List<Lesson> = emptyList(),
     val completedLessonIds: Set<String> = emptySet(),
     val errorMessage: String? = null,
-)
+) {
+    /** Simple sequential unlock: a lesson is locked until the one before it (in curriculum order) is done. */
+    fun isLocked(lesson: Lesson): Boolean {
+        val index = lessons.indexOf(lesson)
+        if (index <= 0) return false
+        return lessons[index - 1].id !in completedLessonIds
+    }
+}
 
 class HomeViewModel(
     private val authRepository: AuthRepository,

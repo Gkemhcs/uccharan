@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  DEBUG BUILD ONLY (lives under src/debug/, never merged into release).
+
+  Trusts user-installed CA certificates in addition to the system store.
+  Needed because this development network runs a TLS-inspecting proxy
+  (Cloudflare Gateway) that re-signs HTTPS traffic with its own CA — without
+  this, Firebase Auth and other HTTPS calls fail with
+  CertPathValidatorException on this network. Trusting user certs is a real
+  security downgrade, which is exactly why this is scoped to debug only.
+-->
+<network-security-config>
+    <base-config>
+        <trust-anchors>
+            <certificates src="system" />
+            <certificates src="user" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

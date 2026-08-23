@@ -1,3 +1,6 @@
+# --- Machine-specific dev artifacts ---
+*.crt
+
 # --- Secrets ---
 .env
 .env.*

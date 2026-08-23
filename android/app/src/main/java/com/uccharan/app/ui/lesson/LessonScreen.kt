@@ -11,6 +11,7 @@ import android.speech.tts.TextToSpeech
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -21,16 +22,17 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.Mic
-import androidx.compose.material3.Button
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -43,11 +45,16 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import com.uccharan.app.data.remote.CorrectionResult
 import com.uccharan.app.di.LocalAppContainer
 import com.uccharan.app.di.uccharanViewModel
+import com.uccharan.app.ui.theme.LocalUccharanGradients
 import java.util.Locale
 
 @Composable
@@ -58,6 +65,7 @@ fun LessonScreen(lessonId: String, onLessonFinished: () -> Unit) {
         LessonViewModel(lessonId, container.authRepository, container.userProfileRepository, container.lessonRepository, container.correctionApi)
     }
     val uiState by viewModel.uiState.collectAsState()
+    val gradients = LocalUccharanGradients.current
 
     var textToSpeech by remember { mutableStateOf<TextToSpeech?>(null) }
     DisposableEffect(Unit) {
@@ -84,64 +92,118 @@ fun LessonScreen(lessonId: String, onLessonFinished: () -> Unit) {
         }
     }
 
-    Column(modifier = Modifier.fillMaxSize().padding(24.dp)) {
+    Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         when {
             uiState.isLoadingLesson -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator()
             }
-            uiState.lesson == null -> Text(uiState.errorMessage ?: "Lesson not found", color = MaterialTheme.colorScheme.error)
+            uiState.lesson == null -> Text(
+                uiState.errorMessage ?: "Lesson not found",
+                color = MaterialTheme.colorScheme.error,
+                modifier = Modifier.padding(24.dp),
+            )
             else -> {
                 val lesson = uiState.lesson!!
 
-                Text("Say this out loud", style = MaterialTheme.typography.titleMedium)
-                Spacer(modifier = Modifier.height(12.dp))
-
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = lesson.prompt.targetSentence,
-                        style = MaterialTheme.typography.headlineSmall,
-                        modifier = Modifier.weight(1f),
-                    )
-                    IconButton(onClick = {
-                        textToSpeech?.language = Locale.US
-                        textToSpeech?.speak(lesson.prompt.targetSentence, TextToSpeech.QUEUE_FLUSH, null, null)
-                    }) {
-                        Icon(Icons.AutoMirrored.Filled.VolumeUp, contentDescription = "Listen")
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp).padding(top = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(44.dp)
+                            .clip(CircleShape)
+                            .clickable(onClick = onLessonFinished),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
+                    Text(lesson.unit, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Box(modifier = Modifier.size(44.dp))
                 }
 
-                if (lesson.prompt.grammarNote.isNotBlank()) {
+                Column(modifier = Modifier.padding(horizontal = 24.dp).padding(top = 20.dp)) {
                     Text(
-                        text = lesson.prompt.grammarNote,
-                        style = MaterialTheme.typography.bodySmall,
-                        modifier = Modifier.padding(top = 8.dp),
+                        "SAY THIS OUT LOUD",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.primary,
                     )
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Row(verticalAlignment = Alignment.Top) {
+                        val isMidAttempt = uiState.isListening
+                        Text(
+                            text = lesson.prompt.targetSentence,
+                            style = MaterialTheme.typography.titleLarge,
+                            color = if (isMidAttempt) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onBackground,
+                            modifier = Modifier.weight(1f),
+                        )
+                        if (!isMidAttempt) {
+                            Box(
+                                modifier = Modifier
+                                    .size(46.dp)
+                                    .clip(CircleShape)
+                                    .background(MaterialTheme.colorScheme.surface)
+                                    .shadow(elevation = 4.dp, shape = CircleShape)
+                                    .clickable {
+                                        textToSpeech?.language = Locale.US
+                                        textToSpeech?.speak(lesson.prompt.targetSentence, TextToSpeech.QUEUE_FLUSH, null, null)
+                                    },
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Icon(Icons.AutoMirrored.Filled.VolumeUp, contentDescription = "Listen", tint = MaterialTheme.colorScheme.primary)
+                            }
+                        }
+                    }
+                    if (lesson.prompt.grammarNote.isNotBlank() && uiState.correctionResult == null) {
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Text(
+                            text = lesson.prompt.grammarNote,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                 }
 
                 Spacer(modifier = Modifier.weight(1f))
 
-                uiState.errorMessage?.let { message ->
-                    Text(message, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(bottom = 12.dp))
+                Column(modifier = Modifier.padding(horizontal = 24.dp)) {
+                    uiState.errorMessage?.let { message ->
+                        Text(message, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(bottom = 12.dp))
+                    }
+
+                    uiState.correctionResult?.let { result ->
+                        FeedbackCard(spokenText = uiState.lastSpokenText.orEmpty(), result = result)
+                        Spacer(modifier = Modifier.height(18.dp))
+                    }
                 }
 
-                uiState.correctionResult?.let { result ->
-                    FeedbackCard(spokenText = uiState.lastSpokenText.orEmpty(), result = result)
-                    Spacer(modifier = Modifier.height(16.dp))
-                }
-
-                when {
-                    uiState.isLessonComplete -> Button(onClick = onLessonFinished, modifier = Modifier.fillMaxWidth()) {
-                        Text("Continue")
-                    }
-                    uiState.correctionResult != null && !uiState.correctionResult!!.isCorrect -> Button(
-                        onClick = viewModel::retry,
-                        modifier = Modifier.fillMaxWidth(),
-                    ) { Text("Try again") }
-                    uiState.isCheckingAttempt -> Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator()
-                    }
-                    else -> Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                        MicButton(isListening = uiState.isListening, onClick = ::onMicClick)
+                Box(modifier = Modifier.padding(bottom = 56.dp)) {
+                    when {
+                        uiState.isLessonComplete -> Box(modifier = Modifier.padding(horizontal = 24.dp)) {
+                            GradientCta(text = "Continue", icon = Icons.AutoMirrored.Filled.ArrowForward, onClick = onLessonFinished, brush = gradients.primaryButton)
+                        }
+                        uiState.correctionResult != null && uiState.correctionResult?.isCorrect == false -> Box(modifier = Modifier.padding(horizontal = 24.dp)) {
+                            GradientCta(text = "Try again", icon = Icons.Filled.Refresh, onClick = viewModel::retry, brush = gradients.primaryButton)
+                        }
+                        uiState.isCheckingAttempt -> Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                            CircularProgressIndicator()
+                        }
+                        else -> Column(modifier = Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+                            if (uiState.isListening) {
+                                SoundWave()
+                                Spacer(modifier = Modifier.height(22.dp))
+                            }
+                            MicButton(isListening = uiState.isListening, onClick = ::onMicClick)
+                            Spacer(modifier = Modifier.height(14.dp))
+                            Text(
+                                if (uiState.isListening) "Listening…" else "Tap to speak",
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.SemiBold,
+                                color = if (uiState.isListening) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
                     }
                 }
             }
@@ -151,33 +213,111 @@ fun LessonScreen(lessonId: String, onLessonFinished: () -> Unit) {
 
 @Composable
 private fun MicButton(isListening: Boolean, onClick: () -> Unit) {
-    FilledIconButton(
-        onClick = onClick,
-        modifier = Modifier.size(72.dp),
-        colors = androidx.compose.material3.IconButtonDefaults.filledIconButtonColors(
-            containerColor = if (isListening) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
-        ),
+    val gradients = LocalUccharanGradients.current
+    val brush = if (isListening) gradients.listening else gradients.primaryButton
+    val glow = if (isListening) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
+
+    Box(
+        modifier = Modifier
+            .size(84.dp)
+            .shadow(elevation = 20.dp, shape = CircleShape, ambientColor = glow, spotColor = glow)
+            .clip(CircleShape)
+            .background(brush)
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
     ) {
-        Icon(Icons.Filled.Mic, contentDescription = if (isListening) "Listening…" else "Tap to speak", modifier = Modifier.size(32.dp))
+        Icon(
+            Icons.Filled.Mic,
+            contentDescription = if (isListening) "Listening…" else "Tap to speak",
+            tint = MaterialTheme.colorScheme.onPrimary,
+            modifier = Modifier.size(32.dp),
+        )
     }
 }
 
 @Composable
-private fun FeedbackCard(spokenText: String, result: com.uccharan.app.data.remote.CorrectionResult) {
-    val containerColor = if (result.isCorrect) MaterialTheme.colorScheme.tertiaryContainer else MaterialTheme.colorScheme.errorContainer
+private fun SoundWave() {
+    val heights = listOf(10, 22, 14, 32, 18, 26, 12)
+    Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        heights.forEach { h ->
+            Box(
+                modifier = Modifier
+                    .width(4.dp)
+                    .height(h.dp)
+                    .clip(RoundedCornerShape(2.dp))
+                    .background(MaterialTheme.colorScheme.error),
+            )
+        }
+    }
+}
+
+@Composable
+private fun GradientCta(text: String, icon: androidx.compose.ui.graphics.vector.ImageVector, onClick: () -> Unit, brush: androidx.compose.ui.graphics.Brush) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .shadow(elevation = 16.dp, shape = RoundedCornerShape(16.dp), ambientColor = MaterialTheme.colorScheme.primary, spotColor = MaterialTheme.colorScheme.primary)
+            .clip(RoundedCornerShape(16.dp))
+            .background(brush)
+            .clickable(onClick = onClick)
+            .padding(vertical = 17.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(text, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onPrimary)
+            Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(16.dp))
+        }
+    }
+}
+
+@Composable
+private fun FeedbackCard(spokenText: String, result: CorrectionResult) {
+    val isCorrect = result.isCorrect
+    val containerColor = if (isCorrect) MaterialTheme.colorScheme.tertiaryContainer else MaterialTheme.colorScheme.errorContainer
+    val onContainerColor = if (isCorrect) MaterialTheme.colorScheme.onTertiaryContainer else MaterialTheme.colorScheme.onErrorContainer
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
+            .shadow(elevation = 10.dp, shape = RoundedCornerShape(22.dp))
+            .clip(RoundedCornerShape(22.dp))
             .background(containerColor)
-            .padding(16.dp),
+            .padding(22.dp),
     ) {
-        Text("You said: “$spokenText”", style = MaterialTheme.typography.bodySmall)
-        Spacer(modifier = Modifier.height(8.dp))
-        Text(result.feedback, style = MaterialTheme.typography.bodyLarge)
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Box(
+                modifier = Modifier
+                    .size(34.dp)
+                    .clip(CircleShape)
+                    .background(if (isCorrect) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.error),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    if (isCorrect) Icons.Filled.Mic else Icons.Filled.Refresh,
+                    contentDescription = null,
+                    tint = if (isCorrect) MaterialTheme.colorScheme.onTertiary else MaterialTheme.colorScheme.onError,
+                    modifier = Modifier.size(16.dp),
+                )
+            }
+            Text(
+                if (isCorrect) "Perfect!" else "Almost there",
+                style = MaterialTheme.typography.titleMedium,
+                color = onContainerColor,
+            )
+        }
+        Spacer(modifier = Modifier.height(14.dp))
+        Text("YOU SAID", style = MaterialTheme.typography.labelSmall, color = onContainerColor)
+        Spacer(modifier = Modifier.height(4.dp))
+        Text("\"$spokenText\"", style = MaterialTheme.typography.bodyMedium, color = onContainerColor)
+        Spacer(modifier = Modifier.height(14.dp))
+        Text(result.feedback, style = MaterialTheme.typography.bodyLarge, color = onContainerColor)
+
         result.nativeExplanation?.let { native ->
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(native, style = MaterialTheme.typography.bodyMedium)
+            androidx.compose.material3.HorizontalDivider(
+                modifier = Modifier.padding(vertical = 16.dp),
+                color = onContainerColor.copy(alpha = 0.2f),
+            )
+            Text(native, style = MaterialTheme.typography.bodyLarge, color = onContainerColor)
         }
     }
 }

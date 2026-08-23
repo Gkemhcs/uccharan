@@ -5,6 +5,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 
 private val LightColorScheme = lightColorScheme(
     primary = TealPrimaryLight,
@@ -15,8 +16,12 @@ private val LightColorScheme = lightColorScheme(
     tertiaryContainer = AmberTertiaryContainerLight,
     background = BackgroundLight,
     surface = SurfaceLight,
+    surfaceVariant = SurfaceVariantLight,
     onBackground = OnBackgroundLight,
     onSurface = OnBackgroundLight,
+    onSurfaceVariant = OnSurfaceVariantLight,
+    outline = OutlineLight,
+    outlineVariant = OutlineLight,
     error = ErrorLight,
 )
 
@@ -29,8 +34,12 @@ private val DarkColorScheme = darkColorScheme(
     tertiaryContainer = AmberTertiaryContainerDark,
     background = BackgroundDark,
     surface = SurfaceDark,
+    surfaceVariant = SurfaceVariantDark,
     onBackground = OnBackgroundDark,
     onSurface = OnBackgroundDark,
+    onSurfaceVariant = OnSurfaceVariantDark,
+    outline = OutlineDark,
+    outlineVariant = OutlineDark,
     error = ErrorDark,
 )
 
@@ -47,9 +56,11 @@ fun UccharanTheme(
 ) {
     val colorScheme = if (darkTheme) DarkColorScheme else LightColorScheme
 
-    MaterialTheme(
-        colorScheme = colorScheme,
-        typography = Typography,
-        content = content,
-    )
+    CompositionLocalProvider(LocalUccharanGradients provides gradientsFor(darkTheme)) {
+        MaterialTheme(
+            colorScheme = colorScheme,
+            typography = Typography,
+            content = content,
+        )
+    }
 }
