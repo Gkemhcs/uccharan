@@ -17,6 +17,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -30,6 +33,13 @@ import com.uccharan.app.di.uccharanViewModel
 
 @Composable
 fun SignInScreen() {
+    var showPhoneSignIn by remember { mutableStateOf(false) }
+
+    if (showPhoneSignIn) {
+        PhoneSignInScreen(onBack = { showPhoneSignIn = false })
+        return
+    }
+
     val context = LocalContext.current
     val container = LocalAppContainer.current
     val viewModel = uccharanViewModel { SignInViewModel(container.authRepository) }
@@ -95,6 +105,13 @@ fun SignInScreen() {
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Text("Continue with Google")
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+            OutlinedButton(
+                onClick = { showPhoneSignIn = true },
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text("Continue with phone number")
             }
         }
     }

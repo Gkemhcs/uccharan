@@ -10,6 +10,7 @@ import com.google.android.libraries.identity.googleid.GoogleIdTokenParsingExcept
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.auth.GoogleAuthProvider
+import com.google.firebase.auth.PhoneAuthCredential
 import com.uccharan.app.BuildConfig
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
@@ -76,6 +77,12 @@ class AuthRepository(
         val firebaseCredential = GoogleAuthProvider.getCredential(googleIdToken, null)
         firebaseAuth.signInWithCredential(firebaseCredential).await().user
             ?: error("Google sign-in succeeded but returned no Firebase user")
+    }
+
+    /** Exchanges a phone verification credential (auto-verified or OTP-built) for a Firebase session. */
+    suspend fun signInWithPhoneCredential(credential: PhoneAuthCredential): Result<FirebaseUser> = runCatching {
+        firebaseAuth.signInWithCredential(credential).await().user
+            ?: error("Phone sign-in succeeded but returned no user")
     }
 
     fun signOut() {

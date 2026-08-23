@@ -8,14 +8,19 @@ import kotlinx.coroutines.tasks.await
 class LessonRepository(
     private val firestore: FirebaseFirestore = FirebaseFirestore.getInstance(),
 ) {
-    /** Lessons for a track, in curriculum order. Cached by Firestore's default offline persistence. */
+    /**
+     * Lessons for a track, in curriculum order. Sorted client-side rather than
+     * via Firestore's `orderBy` — combining an equality filter with orderBy on
+     * a different field needs a composite index; sorting ~10-15 lessons in
+     * memory is simpler than managing that index for a list this small.
+     */
     suspend fun getLessonsForTrack(track: String): Result<List<Lesson>> = runCatching {
         firestore.collection("lessons")
             .whereEqualTo("track", track)
-            .orderBy("order")
             .get()
             .await()
             .toObjects(Lesson::class.java)
+            .sortedBy { it.order }
     }
 
     suspend fun getLesson(lessonId: String): Result<Lesson?> = runCatching {
