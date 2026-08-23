@@ -1,0 +1,25 @@
+# --- Secrets ---
+.env
+.env.*
+!.env.example
+**/google-services.json
+**/*serviceAccountKey*.json
+
+# --- macOS ---
+.DS_Store
+
+# --- Python (backend/) ---
+backend/__pycache__/
+backend/**/__pycache__/
+backend/.venv/
+backend/venv/
+backend/*.egg-info/
+backend/.pytest_cache/
+backend/.mypy_cache/
+backend/.ruff_cache/
+backend/htmlcov/
+backend/.coverage
+
+# --- Editors ---
+.vscode/
+.idea/
