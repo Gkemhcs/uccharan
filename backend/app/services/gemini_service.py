@@ -8,9 +8,11 @@ if we ever add a fallback provider (e.g. Groq) or swap models.
 from typing import Literal
 
 from google import genai
+from google.genai import errors as genai_errors
 from pydantic import BaseModel
 
 from app.core.config import Settings
+from app.core.errors import GeminiRateLimitedError, GeminiUnavailableError
 
 CORRECTION_PROMPT_TEMPLATE = """You are a warm, encouraging English speaking tutor.
 {address_instruction}
@@ -162,6 +164,23 @@ class GeminiService:
         self._client = genai.Client(api_key=settings.google_api_key)
         self._model = settings.gemini_model
 
+    def _generate(self, prompt: str):
+        """
+        The one place every prompt in this file actually reaches Gemini —
+        translates the SDK's raw errors into GeminiRateLimitedError /
+        GeminiUnavailableError (see app/core/errors.py) so callers, and the
+        exception handlers registered in app/main.py, don't each need their
+        own copy of this mapping.
+        """
+        try:
+            return self._client.models.generate_content(model=self._model, contents=prompt)
+        except genai_errors.ServerError as exc:
+            raise GeminiUnavailableError(str(exc)) from exc
+        except genai_errors.ClientError as exc:
+            if exc.code == 429:
+                raise GeminiRateLimitedError(str(exc)) from exc
+            raise  # anything else (bad request, bad API key, ...) is our own bug — let it surface as a real 500
+
     def check_pronunciation_attempt(
         self,
         target_sentence: str,
@@ -206,7 +225,7 @@ class GeminiService:
             focus_sound_instruction=focus_sound_instruction,
             native_explanation_instruction=native_explanation_instruction,
         )
-        response = self._client.models.generate_content(model=self._model, contents=prompt)
+        response = self._generate(prompt)
         return self._parse_response(response.text or "")
 
     def continue_practice_conversation(
@@ -285,7 +304,7 @@ class GeminiService:
             learner_message=learner_message,
             native_note_instruction=native_note_instruction,
         )
-        response = self._client.models.generate_content(model=self._model, contents=prompt)
+        response = self._generate(prompt)
         result = self._parse_practice_response(response.text or "")
         return result.model_copy(
             update={
@@ -309,7 +328,7 @@ class GeminiService:
         comprehension question tests the actual skill this exercise is for.
         """
         prompt = LISTENING_PROMPT_TEMPLATE.format(topic=topic)
-        response = self._client.models.generate_content(model=self._model, contents=prompt)
+        response = self._generate(prompt)
         return self._parse_listening_response(response.text or "")
 
     @staticmethod
@@ -383,7 +402,7 @@ class GeminiService:
             previous_summary_section=previous_summary_section,
             history_text=history_text,
         )
-        response = self._client.models.generate_content(model=self._model, contents=prompt)
+        response = self._generate(prompt)
         return self._parse_summary_response(response.text or "", fallback=previous_summary or "")
 
     @staticmethod

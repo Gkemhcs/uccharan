@@ -1,4 +1,54 @@
+import pytest
+from google.genai import errors as genai_errors
+
+from app.core.errors import GeminiRateLimitedError, GeminiUnavailableError
 from app.services.gemini_service import GeminiService
+
+
+def _api_error(error_cls, code: int):
+    """Builds a real instance of google.genai.errors' ClientError/ServerError
+    with just `.code` set — bypassing __init__, which expects a real
+    requests/httpx response object we don't have in a unit test. Sufficient
+    for GeminiService._generate, which only ever reads `.code`."""
+    err = error_cls.__new__(error_cls)
+    err.code = code
+    return err
+
+
+def test_generate_translates_a_429_client_error_into_rate_limited(mocker):
+    settings = mocker.Mock(google_api_key="test-key", gemini_model="gemini-3.6-flash")
+    service = GeminiService(settings)
+    mocker.patch.object(
+        service._client.models, "generate_content", side_effect=_api_error(genai_errors.ClientError, 429),
+    )
+
+    with pytest.raises(GeminiRateLimitedError):
+        service._generate("any prompt")
+
+
+def test_generate_translates_a_server_error_into_unavailable(mocker):
+    settings = mocker.Mock(google_api_key="test-key", gemini_model="gemini-3.6-flash")
+    service = GeminiService(settings)
+    mocker.patch.object(
+        service._client.models, "generate_content", side_effect=_api_error(genai_errors.ServerError, 503),
+    )
+
+    with pytest.raises(GeminiUnavailableError):
+        service._generate("any prompt")
+
+
+def test_generate_lets_a_non_429_client_error_surface_as_is(mocker):
+    # A 400 (bad request) or 403 (bad API key) means OUR request was wrong,
+    # not something the learner can fix by waiting — that's a real bug and
+    # should surface as an unexpected error, not a friendly retry message.
+    settings = mocker.Mock(google_api_key="test-key", gemini_model="gemini-3.6-flash")
+    service = GeminiService(settings)
+    mocker.patch.object(
+        service._client.models, "generate_content", side_effect=_api_error(genai_errors.ClientError, 400),
+    )
+
+    with pytest.raises(genai_errors.ClientError):
+        service._generate("any prompt")
 
 
 def test_parse_response_marks_correct_attempt():
