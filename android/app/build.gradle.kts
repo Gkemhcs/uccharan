@@ -2,6 +2,7 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.google.services)
+    alias(libs.plugins.firebase.crashlytics.plugin)
 }
 
 android {
@@ -73,10 +74,14 @@ dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
 
-    // Firebase (Auth + Firestore) — versions come from the BoM, don't pin them individually
+    // Firebase (Auth + Firestore + Crashlytics) — versions come from the BoM, don't pin them individually
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.auth)
     implementation(libs.firebase.firestore)
+    // Crash reporting for the phones this actually runs on — once it's installed on a
+    // learner's device, a crash there is otherwise invisible; this is the only way to
+    // find out it happened at all, let alone why.
+    implementation(libs.firebase.crashlytics)
 
     // Google Sign-In via Credential Manager (current, non-deprecated approach)
     implementation(libs.androidx.credentials)

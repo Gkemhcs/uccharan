@@ -291,7 +291,7 @@ private fun QuizResult(uiState: QuizUiState, onContinue: () -> Unit) {
         if (uiState.passed) {
             Spacer(modifier = Modifier.height(6.dp))
             Text(
-                "+${uiState.xpEarned} XP — next day unlocked!",
+                if (uiState.isReviewPass) "Nice review — you've already mastered this one!" else "+${uiState.xpEarned} XP — next day unlocked!",
                 style = MaterialTheme.typography.bodyLarge,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.tertiary,

@@ -97,7 +97,15 @@ fun RoadmapOverviewScreen(onBack: () -> Unit) {
                 ROADMAP_LEVELS.forEach { level ->
                     item(key = "level-${level.level}") { LevelHeader(level) }
                     items(level.days, key = { it.day }) { day ->
-                        DayRow(day = day, status = uiState.statusFor(day), onClick = { viewModel.requestJump(day) })
+                        val status = uiState.statusFor(day)
+                        DayRow(
+                            day = day,
+                            status = status,
+                            // A completed day is safe to revisit outright — no confirmation needed,
+                            // it's just going back to revise (see RoadmapOverviewViewModel.reviewDay).
+                            // Anything else tappable is a genuine forward jump, which does need one.
+                            onClick = { if (status == DayStatus.COMPLETED) viewModel.reviewDay(day) else viewModel.requestJump(day) },
+                        )
                     }
                 }
                 item { Spacer(modifier = Modifier.height(24.dp)) }

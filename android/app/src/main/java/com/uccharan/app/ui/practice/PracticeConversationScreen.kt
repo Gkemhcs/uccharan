@@ -28,6 +28,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -44,6 +46,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -114,22 +117,42 @@ fun PracticeConversationScreen(topic: String, onBack: () -> Unit) {
         }
     }
 
+    val sessionSummary = uiState.sessionSummary
+    if (sessionSummary != null) {
+        PracticeSessionSummaryScreen(summary = sessionSummary, tutorGender = uiState.tutorGender, onDone = onBack)
+        return
+    }
+
     Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp).padding(top = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
         ) {
-            Box(
-                modifier = Modifier.size(44.dp).clip(CircleShape).clickable(onClick = onBack),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier.size(44.dp).clip(CircleShape).clickable(onClick = onBack),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                }
+                Text(
+                    uiState.topic,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onBackground,
+                )
             }
-            Text(
-                uiState.topic,
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onBackground,
-            )
+            // Only shown once there's something to end — an empty, just-opened
+            // conversation ending immediately isn't a meaningful session (see
+            // PracticeConversationViewModel.endSession's XP-eligibility gate).
+            if (uiState.messages.any { it.speaker == "learner" }) {
+                Box(
+                    modifier = Modifier.size(44.dp).clip(CircleShape).clickable(onClick = viewModel::endSession),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(Icons.Filled.Check, contentDescription = "End practice")
+                }
+            }
         }
 
         SceneBanner(topic = uiState.topic, tutorGender = uiState.tutorGender)
@@ -209,6 +232,87 @@ fun PracticeConversationScreen(topic: String, onBack: () -> Unit) {
                 }
             }
         }
+    }
+}
+
+/**
+ * The wrap-up shown once the learner taps "End practice" — replaces the old
+ * "just navigate away with no closure" ending (Tier 1's practice-session
+ * summary). See [PracticeConversationViewModel.endSession].
+ */
+@Composable
+private fun PracticeSessionSummaryScreen(summary: PracticeSessionSummary, tutorGender: TutorGender, onDone: () -> Unit) {
+    val gradients = LocalUccharanGradients.current
+
+    Column(
+        modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).padding(horizontal = 24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Spacer(modifier = Modifier.weight(1f))
+        TutorCharacter(gender = tutorGender, avatarSize = 72.dp)
+        Spacer(modifier = Modifier.height(18.dp))
+        Text("Nice practice session!", style = MaterialTheme.typography.headlineSmall, color = MaterialTheme.colorScheme.onBackground)
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            "You spoke ${summary.learnerTurns} time${if (summary.learnerTurns == 1) "" else "s"} in this conversation.",
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+        )
+
+        if (summary.xpEarned > 0) {
+            Spacer(modifier = Modifier.height(14.dp))
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(gradients.amberBadge)
+                    .padding(horizontal = 16.dp, vertical = 10.dp),
+            ) {
+                Icon(Icons.Filled.Star, contentDescription = null, tint = gradients.onAmberBadge, modifier = Modifier.size(18.dp))
+                Text("+${summary.xpEarned} XP", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold, color = gradients.onAmberBadge)
+            }
+        }
+
+        if (summary.correctionsGiven.isNotEmpty()) {
+            Spacer(modifier = Modifier.height(24.dp))
+            Text(
+                "Things to remember",
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onBackground,
+                modifier = Modifier.align(Alignment.Start),
+            )
+            Spacer(modifier = Modifier.height(10.dp))
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(MaterialTheme.colorScheme.surface)
+                    .padding(16.dp),
+            ) {
+                summary.correctionsGiven.forEachIndexed { index, correction ->
+                    if (index > 0) Spacer(modifier = Modifier.height(10.dp))
+                    Text("💡 $correction", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.weight(1f))
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .shadow(elevation = 16.dp, shape = RoundedCornerShape(16.dp), ambientColor = MaterialTheme.colorScheme.primary, spotColor = MaterialTheme.colorScheme.primary)
+                .clip(RoundedCornerShape(16.dp))
+                .background(gradients.primaryButton)
+                .clickable(onClick = onDone)
+                .padding(vertical = 17.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text("Done", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onPrimary)
+        }
+        Spacer(modifier = Modifier.height(40.dp))
     }
 }
 

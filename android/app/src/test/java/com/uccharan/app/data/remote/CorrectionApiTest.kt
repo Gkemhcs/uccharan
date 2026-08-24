@@ -80,4 +80,55 @@ class CorrectionApiTest {
 
         assertTrue(result.isFailure)
     }
+
+    @Test
+    fun `includes focus sounds in the request body when the lesson has them`() = runTest {
+        server.enqueue(MockResponse(body = """{"is_correct": true, "feedback": "Nice!", "native_explanation": null}"""))
+
+        api.correctAttempt("I think that.", "I think that.", null, null, listOf("th"))
+
+        val body = server.takeRequest().body!!.utf8()
+        assertTrue(body.contains("\"focus_sounds\":[\"th\"]"))
+    }
+
+    @Test
+    fun `omits focus sounds from the request body when the lesson has none`() = runTest {
+        server.enqueue(MockResponse(body = """{"is_correct": true, "feedback": "Nice!", "native_explanation": null}"""))
+
+        api.correctAttempt("Hi.", "Hi.", null, null)
+
+        val body = server.takeRequest().body!!.utf8()
+        assertTrue(!body.contains("focus_sounds"))
+    }
+
+    @Test
+    fun `attaches the id token as a bearer authorization header when one is available`() = runTest {
+        val authedApi = CorrectionApi(baseUrl = server.url("/").toString().removeSuffix("/"), idTokenProvider = { "a-firebase-id-token" })
+        server.enqueue(MockResponse(body = """{"is_correct": true, "feedback": "Nice!", "native_explanation": null}"""))
+
+        authedApi.correctAttempt("Hi.", "Hi.", null, null)
+
+        val request = server.takeRequest()
+        assertEquals("Bearer a-firebase-id-token", request.headers["Authorization"])
+    }
+
+    @Test
+    fun `sends no authorization header when signed out`() = runTest {
+        server.enqueue(MockResponse(body = """{"is_correct": true, "feedback": "Nice!", "native_explanation": null}"""))
+
+        api.correctAttempt("Hi.", "Hi.", null, null)
+
+        val request = server.takeRequest()
+        assertEquals(null, request.headers["Authorization"])
+    }
+
+    @Test
+    fun `a 401 response is a distinguishable auth failure, not a generic connection error`() = runTest {
+        server.enqueue(MockResponse(code = 401, body = """{"detail": "Invalid or expired session"}"""))
+
+        val result = api.correctAttempt("Hi.", "Hi.", null, null)
+
+        assertTrue(result.isFailure)
+        assertTrue(result.exceptionOrNull()?.cause is BackendAuthException)
+    }
 }

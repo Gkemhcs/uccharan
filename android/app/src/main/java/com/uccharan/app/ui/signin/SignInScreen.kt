@@ -25,6 +25,7 @@ import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material.icons.outlined.Circle
 import androidx.compose.material.icons.outlined.Email
 import androidx.compose.material.icons.outlined.Lock
+import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -67,7 +68,7 @@ import com.uccharan.app.ui.theme.LocalUccharanGradients
 fun SignInScreen() {
     val context = LocalContext.current
     val container = LocalAppContainer.current
-    val viewModel = uccharanViewModel { SignInViewModel(container.authRepository) }
+    val viewModel = uccharanViewModel { SignInViewModel(container.authRepository, container.userProfileRepository) }
     val uiState by viewModel.uiState.collectAsState()
     val gradients = LocalUccharanGradients.current
     var passwordVisible by remember { mutableStateOf(false) }
@@ -82,11 +83,13 @@ fun SignInScreen() {
                 .padding(top = 16.dp, bottom = 24.dp),
             verticalArrangement = Arrangement.Center,
         ) {
+            val isSignUp = uiState.mode == AuthMode.CREATE_ACCOUNT
+
             BrandMark()
             Spacer(modifier = Modifier.height(30.dp))
 
             Text(
-                text = "Speak with\nconfidence.",
+                text = if (isSignUp) "Let's get\nstarted." else "Speak with\nconfidence.",
                 style = MaterialTheme.typography.displaySmall,
                 color = MaterialTheme.colorScheme.onBackground,
             )
@@ -98,6 +101,19 @@ fun SignInScreen() {
             )
             Spacer(modifier = Modifier.height(32.dp))
 
+            if (isSignUp) {
+                OutlinedTextField(
+                    value = uiState.name,
+                    onValueChange = viewModel::onNameChange,
+                    label = { Text("Your name") },
+                    leadingIcon = { Icon(Icons.Outlined.Person, contentDescription = null) },
+                    shape = RoundedCornerShape(14.dp),
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = uccharanTextFieldColors(),
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+            }
             OutlinedTextField(
                 value = uiState.email,
                 onValueChange = viewModel::onEmailChange,
@@ -131,7 +147,7 @@ fun SignInScreen() {
                 colors = uccharanTextFieldColors(),
             )
 
-            if (uiState.password.isNotEmpty()) {
+            if (isSignUp && uiState.password.isNotEmpty()) {
                 PasswordRequirementsChecklist(password = uiState.password)
             }
 
@@ -143,15 +159,28 @@ fun SignInScreen() {
                     modifier = Modifier.padding(top = 10.dp),
                 )
             }
+            // Never asserted as certain — see SignInViewModel's doc on why this
+            // also shows up for an ambiguous "wrong password vs no account" error.
+            if (uiState.suggestCreateAccount) {
+                Text(
+                    text = "New here? Create an account instead",
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.padding(top = 6.dp).clickableSingle(viewModel::switchToCreateAccount),
+                )
+            }
 
             Spacer(modifier = Modifier.height(22.dp))
 
             if (uiState.isLoading) {
                 CircularProgressIndicator(modifier = Modifier.align(Alignment.CenterHorizontally))
+            } else if (isSignUp) {
+                GradientButton(text = "Create account", brush = gradients.primaryButton, onClick = viewModel::signUp)
+                Spacer(modifier = Modifier.height(20.dp))
+                ModeSwitchLink(prompt = "Already have an account?", action = "Sign in", onClick = viewModel::switchToSignIn)
             } else {
                 GradientButton(text = "Sign in", brush = gradients.primaryButton, onClick = viewModel::signIn)
-                Spacer(modifier = Modifier.height(12.dp))
-                TintedButton(text = "Create an account", onClick = viewModel::signUp)
                 Spacer(modifier = Modifier.height(26.dp))
                 DividerWithLabel(label = "OR CONTINUE WITH")
                 Spacer(modifier = Modifier.height(20.dp))
@@ -167,8 +196,22 @@ fun SignInScreen() {
                     },
                     onClick = { viewModel.signInWithGoogle(context) },
                 )
+                Spacer(modifier = Modifier.height(20.dp))
+                ModeSwitchLink(prompt = "Don't have an account?", action = "Create one", onClick = viewModel::switchToCreateAccount)
             }
         }
+    }
+}
+
+@Composable
+private fun ModeSwitchLink(prompt: String, action: String, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier.fillMaxWidth().clickableSingle(onClick),
+        horizontalArrangement = Arrangement.Center,
+    ) {
+        Text(prompt, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Spacer(modifier = Modifier.width(6.dp))
+        Text(action, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
     }
 }
 
@@ -252,21 +295,6 @@ internal fun GradientButton(text: String, brush: Brush, onClick: () -> Unit, mod
         contentAlignment = Alignment.Center,
     ) {
         Text(text, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onPrimary)
-    }
-}
-
-@Composable
-private fun TintedButton(text: String, onClick: () -> Unit) {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
-            .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f))
-            .clickableSingle(onClick)
-            .padding(vertical = 17.dp),
-        contentAlignment = Alignment.Center,
-    ) {
-        Text(text, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
     }
 }
 

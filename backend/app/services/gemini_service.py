@@ -16,7 +16,7 @@ CORRECTION_PROMPT_TEMPLATE = """You are a warm, encouraging English speaking tut
 {address_instruction}
 The student was asked to say this target sentence:
 "{target_sentence}"
-
+{focus_sound_instruction}
 Speech recognition heard them say:
 "{spoken_text}"
 
@@ -103,6 +103,43 @@ _PRACTICE_HISTORY_WINDOW = 6
 # before generating its reply.
 _SUMMARIZE_TRIGGER_SIZE = 14
 
+
+# --- Listening comprehension ------------------------------------------------
+
+LISTENING_PROMPT_TEMPLATE = """You are writing a short LISTENING comprehension exercise for an \
+adult English learner (CEFR A1-B1), themed around: {topic}
+
+Write a short passage — either a short realistic spoken exchange (2-3 lines, e.g. two people \
+talking) or a short monologue (2-4 sentences) — the kind of thing the learner would actually \
+need to understand out loud in real life for this topic. Simple, natural, everyday spoken \
+English, nothing written-style or overly formal.
+
+Then write ONE comprehension question about it. This question must test whether the learner \
+UNDERSTOOD what was said — not a grammar or vocabulary quiz, and not something answerable \
+without having listened (e.g. don't just ask to repeat a word verbatim). Give exactly 4 answer \
+options, only one clearly correct, the other three plausible but wrong.
+
+Respond in this exact format, nothing else:
+PASSAGE: the short passage, as plain text a text-to-speech voice will read aloud
+QUESTION: the comprehension question
+OPTION_A: first option
+OPTION_B: second option
+OPTION_C: third option
+OPTION_D: fourth option
+CORRECT: the single letter of the correct option (A, B, C, or D)
+EXPLANATION: one short, encouraging sentence explaining why that's the answer, referencing \
+what was actually said in the passage
+"""
+
+
+class ListeningExercise(BaseModel):
+    passage: str
+    question: str
+    options: list[str]
+    correct_option_index: int
+    explanation: str
+
+
 SUMMARIZE_PROMPT_TEMPLATE = """You are keeping a short memory note for an English-speaking \
 tutor bot, so it can remember facts a learner has shared earlier in a long practice \
 conversation (their name, hometown, family, job, interests — anything worth \
@@ -131,12 +168,26 @@ class GeminiService:
         spoken_text: str,
         preferred_address_term: str | None = None,
         native_language: str | None = None,
+        focus_sounds: list[str] | None = None,
     ) -> CorrectionResult:
         address_instruction = (
             f'Address the student warmly as "{preferred_address_term}" if it fits '
             f"naturally in your feedback — the way a caring family member would, not "
             f"formally."
             if preferred_address_term
+            else ""
+        )
+        # This lesson's curriculum-authored target sound(s) — e.g. a lesson
+        # teaching "th" words flags focus_sounds=["th"]. Telling Gemini about
+        # it means feedback on a mispronunciation can name the actual sound
+        # to work on ("the 'th' sound") instead of only describing the
+        # transcript mismatch in the abstract.
+        focus_sound_instruction = (
+            f"This lesson is specifically teaching the {', '.join(focus_sounds)} "
+            f"sound(s) — if the mismatch looks like a mispronunciation of one of "
+            f"these, name the specific sound in your feedback so the student knows "
+            f"exactly what to work on.\n"
+            if focus_sounds
             else ""
         )
         native_explanation_instruction = (
@@ -152,6 +203,7 @@ class GeminiService:
             target_sentence=target_sentence,
             spoken_text=spoken_text,
             address_instruction=address_instruction,
+            focus_sound_instruction=focus_sound_instruction,
             native_explanation_instruction=native_explanation_instruction,
         )
         response = self._client.models.generate_content(model=self._model, contents=prompt)
@@ -240,6 +292,69 @@ class GeminiService:
                 "conversation_summary": updated_summary,
                 "summarized_through_index": updated_summarized_through_index,
             }
+        )
+
+    def generate_listening_exercise(self, topic: str) -> ListeningExercise:
+        """Generates one listening-comprehension round: a short passage the
+        client's text-to-speech reads aloud (never shown as text until after
+        answering — reading along would defeat the point) plus a multiple-choice
+        comprehension question.
+
+        Deliberately multiple-choice rather than "repeat what you heard":
+        production-based checking (like check_pronunciation_attempt) grades
+        against speech-recognition transcript matching, which is a weak proxy
+        for whether the learner actually understood — they could stumble
+        through a correct-sounding echo without following the meaning, or get
+        marked wrong by a recognizer mishearing a correct answer. A
+        comprehension question tests the actual skill this exercise is for.
+        """
+        prompt = LISTENING_PROMPT_TEMPLATE.format(topic=topic)
+        response = self._client.models.generate_content(model=self._model, contents=prompt)
+        return self._parse_listening_response(response.text or "")
+
+    @staticmethod
+    def _parse_listening_response(raw_text: str) -> ListeningExercise:
+        passage = ""
+        question = ""
+        options: dict[str, str] = {}
+        correct_letter = "A"
+        explanation = ""
+
+        for line in raw_text.splitlines():
+            line = line.strip()
+            upper = line.upper()
+            if upper.startswith("PASSAGE:"):
+                passage = line.split(":", 1)[1].strip()
+            elif upper.startswith("QUESTION:"):
+                question = line.split(":", 1)[1].strip()
+            elif upper.startswith("OPTION_A:"):
+                options["A"] = line.split(":", 1)[1].strip()
+            elif upper.startswith("OPTION_B:"):
+                options["B"] = line.split(":", 1)[1].strip()
+            elif upper.startswith("OPTION_C:"):
+                options["C"] = line.split(":", 1)[1].strip()
+            elif upper.startswith("OPTION_D:"):
+                options["D"] = line.split(":", 1)[1].strip()
+            elif upper.startswith("CORRECT:"):
+                value = line.split(":", 1)[1].strip().upper()
+                if value and value[0] in "ABCD":
+                    correct_letter = value[0]
+            elif upper.startswith("EXPLANATION:"):
+                explanation = line.split(":", 1)[1].strip()
+
+        # Index into `present_letters`/`ordered_options`, NOT into "ABCD" directly —
+        # if a non-trailing letter is missing (e.g. only B and D came back), D's
+        # position in "ABCD" (3) would point past the end of a 2-item options list.
+        present_letters = [letter for letter in "ABCD" if letter in options]
+        ordered_options = [options[letter] for letter in present_letters]
+        correct_index = present_letters.index(correct_letter) if correct_letter in present_letters else 0
+
+        return ListeningExercise(
+            passage=passage or "Sorry, this exercise couldn't be generated — please try again.",
+            question=question or "What did you hear?",
+            options=ordered_options,
+            correct_option_index=correct_index,
+            explanation=explanation,
         )
 
     def summarize_conversation(

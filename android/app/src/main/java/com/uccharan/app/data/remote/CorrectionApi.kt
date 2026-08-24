@@ -6,6 +6,7 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
+import org.json.JSONArray
 import org.json.JSONObject
 import java.io.IOException
 import java.util.concurrent.TimeUnit
@@ -30,12 +31,15 @@ class CorrectionApi(
         .readTimeout(60, TimeUnit.SECONDS) // Gemini calls + a cold Render free-tier start (can take the better part of a minute) can be slow
         .build(),
     private val baseUrl: String = BackendConfig.baseUrl,
+    /** Supplies a fresh Firebase ID token per call, attached as `Authorization: Bearer <token>` — the backend rejects any request without one. Defaults to no token, since tests exercising the request/response shape don't need auth wired up. */
+    private val idTokenProvider: suspend () -> String? = { null },
 ) {
     suspend fun correctAttempt(
         targetSentence: String,
         spokenText: String,
         preferredAddressTerm: String?,
         nativeLanguage: String?,
+        focusSounds: List<String> = emptyList(),
     ): Result<CorrectionResult> = withContext(Dispatchers.IO) {
         runCatching {
             val body = JSONObject().apply {
@@ -43,17 +47,21 @@ class CorrectionApi(
                 put("spoken_text", spokenText)
                 preferredAddressTerm?.let { put("preferred_address_term", it) }
                 nativeLanguage?.let { put("native_language", it) }
+                if (focusSounds.isNotEmpty()) put("focus_sounds", JSONArray(focusSounds))
             }
 
-            val request = Request.Builder()
+            val requestBuilder = Request.Builder()
                 .url("$baseUrl/api/v1/correct")
                 .post(body.toString().toRequestBody("application/json".toMediaType()))
-                .build()
+            idTokenProvider()?.let { requestBuilder.addHeader("Authorization", "Bearer $it") }
 
-            client.newCall(request).execute().use { response ->
+            client.newCall(requestBuilder.build()).execute().use { response ->
                 val responseBody = response.body?.string()
                     ?: throw IOException("Empty response from server")
 
+                if (response.code == 401) {
+                    throw BackendAuthException("Server returned 401: $responseBody")
+                }
                 if (!response.isSuccessful) {
                     throw IOException("Server returned ${response.code}: $responseBody")
                 }

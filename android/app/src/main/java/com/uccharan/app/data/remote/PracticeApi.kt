@@ -44,6 +44,8 @@ class PracticeApi(
         .readTimeout(60, TimeUnit.SECONDS) // Gemini calls + a cold Render free-tier start (can take the better part of a minute) can be slow
         .build(),
     private val baseUrl: String = BackendConfig.baseUrl,
+    /** Supplies a fresh Firebase ID token per call, attached as `Authorization: Bearer <token>` — the backend rejects any request without one. Defaults to no token, since tests exercising the request/response shape don't need auth wired up. */
+    private val idTokenProvider: suspend () -> String? = { null },
 ) {
     suspend fun sendTurn(
         chatId: String,
@@ -67,13 +69,14 @@ class PracticeApi(
                 put("summarized_through_index", summarizedThroughIndex)
             }
 
-            val request = Request.Builder()
+            val requestBuilder = Request.Builder()
                 .url("$baseUrl/api/v1/practice/turn")
                 .post(body.toString().toRequestBody("application/json".toMediaType()))
-                .build()
+            idTokenProvider()?.let { requestBuilder.addHeader("Authorization", "Bearer $it") }
 
-            client.newCall(request).execute().use { response ->
+            client.newCall(requestBuilder.build()).execute().use { response ->
                 val responseBody = response.body?.string() ?: throw IOException("Empty response from server")
+                if (response.code == 401) throw BackendAuthException("Server returned 401: $responseBody")
                 if (!response.isSuccessful) throw IOException("Server returned ${response.code}: $responseBody")
 
                 val json = JSONObject(responseBody)
@@ -105,13 +108,14 @@ class PracticeApi(
                 previousSummary?.let { put("previous_summary", it) }
             }
 
-            val request = Request.Builder()
+            val requestBuilder = Request.Builder()
                 .url("$baseUrl/api/v1/practice/summarize")
                 .post(body.toString().toRequestBody("application/json".toMediaType()))
-                .build()
+            idTokenProvider()?.let { requestBuilder.addHeader("Authorization", "Bearer $it") }
 
-            client.newCall(request).execute().use { response ->
+            client.newCall(requestBuilder.build()).execute().use { response ->
                 val responseBody = response.body?.string() ?: throw IOException("Empty response from server")
+                if (response.code == 401) throw BackendAuthException("Server returned 401: $responseBody")
                 if (!response.isSuccessful) throw IOException("Server returned ${response.code}: $responseBody")
                 JSONObject(responseBody).getString("summary")
             }

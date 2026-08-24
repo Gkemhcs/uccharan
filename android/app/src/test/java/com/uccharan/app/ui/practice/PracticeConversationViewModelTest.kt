@@ -206,4 +206,79 @@ class PracticeConversationViewModelTest {
         assertFalse(state.isWaitingForTutor)
         assertEquals("offline", state.errorMessage)
     }
+
+    private fun stubTurn(learnerMessage: String, correction: String? = null) {
+        coEvery {
+            practiceApi.sendTurn(
+                chatId = any(),
+                topic = any(),
+                history = any(),
+                learnerMessage = learnerMessage,
+                preferredAddressTerm = any(),
+                nativeLanguage = any(),
+                conversationSummary = any(),
+                summarizedThroughIndex = any(),
+            )
+        } returns Result.success(
+            PracticeTurnResult(tutorReply = "Okay!", correction = correction, nativeNote = null, conversationSummary = null, summarizedThroughIndex = 0),
+        )
+    }
+
+    @Test
+    fun `ending a session below the turn threshold shows a summary but awards no xp`() = runTest {
+        signedInAs("uid-1")
+        stubTurn("one")
+        stubTurn("two")
+
+        val vm = viewModel()
+        vm.onSpeechRecognized("one")
+        vm.onSpeechRecognized("two")
+        vm.endSession()
+
+        val summary = vm.uiState.value.sessionSummary
+        assertEquals(2, summary?.learnerTurns)
+        assertEquals(0, summary?.xpEarned)
+        coVerify(exactly = 0) { userProfileRepository.addXp(any(), any()) }
+    }
+
+    @Test
+    fun `ending a session at the turn threshold awards xp exactly once`() = runTest {
+        signedInAs("uid-1")
+        coEvery { userProfileRepository.addXp("uid-1", PRACTICE_SESSION_XP_REWARD) } returns Result.success(Unit)
+        stubTurn("one")
+        stubTurn("two")
+        stubTurn("three")
+
+        val vm = viewModel()
+        vm.onSpeechRecognized("one")
+        vm.onSpeechRecognized("two")
+        vm.onSpeechRecognized("three")
+        vm.endSession()
+        vm.endSession() // a stray double-tap must not double-award
+
+        val summary = vm.uiState.value.sessionSummary
+        assertEquals(3, summary?.learnerTurns)
+        assertEquals(PRACTICE_SESSION_XP_REWARD, summary?.xpEarned)
+        coVerify(exactly = 1) { userProfileRepository.addXp("uid-1", PRACTICE_SESSION_XP_REWARD) }
+    }
+
+    @Test
+    fun `session summary collects every distinct correction given, not just the latest`() = runTest {
+        signedInAs("uid-1")
+        coEvery { userProfileRepository.addXp("uid-1", PRACTICE_SESSION_XP_REWARD) } returns Result.success(Unit)
+        stubTurn("one", correction = "Use 'went' not 'go'.")
+        stubTurn("two", correction = null)
+        stubTurn("three", correction = "Say 'an apple', not 'a apple'.")
+
+        val vm = viewModel()
+        vm.onSpeechRecognized("one")
+        vm.onSpeechRecognized("two")
+        vm.onSpeechRecognized("three")
+        vm.endSession()
+
+        assertEquals(
+            listOf("Use 'went' not 'go'.", "Say 'an apple', not 'a apple'."),
+            vm.uiState.value.sessionSummary?.correctionsGiven,
+        )
+    }
 }

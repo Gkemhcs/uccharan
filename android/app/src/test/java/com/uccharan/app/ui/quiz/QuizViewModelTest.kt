@@ -7,6 +7,7 @@ import com.uccharan.app.data.model.QuizOption
 import com.uccharan.app.data.model.QuizQuestion
 import com.uccharan.app.data.model.UserProfile
 import com.uccharan.app.data.repository.AuthRepository
+import com.uccharan.app.data.repository.QuizAttemptOutcome
 import com.uccharan.app.data.repository.QuizRepository
 import com.uccharan.app.data.repository.UserProfileRepository
 import io.mockk.coEvery
@@ -58,7 +59,8 @@ class QuizViewModelTest {
     fun `answering all questions correctly passes and awards full XP`() = runTest {
         signedInAs("uid-1")
         coEvery { quizRepository.getQuiz("quiz-day-2") } returns Result.success(fiveQuestionQuiz)
-        coEvery { quizRepository.recordAttempt("uid-1", "quiz-day-2", "Day 2 Quiz", 5, 5, 30) } returns Result.success(Unit)
+        coEvery { quizRepository.recordAttempt("uid-1", "quiz-day-2", "Day 2 Quiz", 5, 5, 30) } returns
+            Result.success(QuizAttemptOutcome(passed = true, isFirstPass = true))
         coEvery { userProfileRepository.addXp("uid-1", 30) } returns Result.success(Unit)
         coEvery { userProfileRepository.advanceToTrack("uid-1", "day-3-routine") } returns Result.success(Unit)
 
@@ -84,7 +86,8 @@ class QuizViewModelTest {
     fun `scoring below 70 percent fails the quiz and awards no XP or advancement`() = runTest {
         signedInAs("uid-1")
         coEvery { quizRepository.getQuiz("quiz-day-2") } returns Result.success(fiveQuestionQuiz)
-        coEvery { quizRepository.recordAttempt("uid-1", "quiz-day-2", "Day 2 Quiz", 2, 5, 0) } returns Result.success(Unit)
+        coEvery { quizRepository.recordAttempt("uid-1", "quiz-day-2", "Day 2 Quiz", 2, 5, 0) } returns
+            Result.success(QuizAttemptOutcome(passed = false, isFirstPass = false))
 
         val vm = viewModel()
         // Get questions 1-2 right, 3-5 wrong (2/5 = 40%, below the 70% pass bar).
@@ -101,6 +104,57 @@ class QuizViewModelTest {
         assertEquals(0, state.xpEarned)
 
         coVerify { quizRepository.recordAttempt("uid-1", "quiz-day-2", "Day 2 Quiz", 2, 5, 0) }
+        coVerify(exactly = 0) { userProfileRepository.addXp(any(), any()) }
+        coVerify(exactly = 0) { userProfileRepository.advanceToTrack(any(), any()) }
+    }
+
+    @Test
+    fun `reviewing an already-passed quiz and scoring low again awards no XP and does not re-advance`() = runTest {
+        // Regression test for a live bug report: a learner went back to revise an
+        // already-completed day, scored below 70% on the review attempt, and their
+        // earlier pass appeared to be lost. QuizRepository.recordAttempt is the one
+        // that keeps `passed` sticky-true — this test locks in the ViewModel's half:
+        // a review attempt (isFirstPass = false) must not re-award XP or re-advance
+        // currentTrack, even when this particular attempt's own score was a fail.
+        signedInAs("uid-1")
+        coEvery { quizRepository.getQuiz("quiz-day-2") } returns Result.success(fiveQuestionQuiz)
+        coEvery { quizRepository.recordAttempt("uid-1", "quiz-day-2", "Day 2 Quiz", 2, 5, 0) } returns
+            Result.success(QuizAttemptOutcome(passed = true, isFirstPass = false))
+
+        val vm = viewModel()
+        repeat(5) { index ->
+            vm.selectOption(if (index < 2) 0 else 1)
+            if (index < 4) vm.nextQuestion()
+        }
+        vm.nextQuestion()
+
+        val state = vm.uiState.value
+        assertFalse(state.passed) // this attempt itself failed, and the result screen must reflect that
+        assertEquals(0, state.xpEarned)
+
+        coVerify(exactly = 0) { userProfileRepository.addXp(any(), any()) }
+        coVerify(exactly = 0) { userProfileRepository.advanceToTrack(any(), any()) }
+    }
+
+    @Test
+    fun `re-passing an already-passed quiz on review awards no duplicate XP and does not re-advance`() = runTest {
+        signedInAs("uid-1")
+        coEvery { quizRepository.getQuiz("quiz-day-2") } returns Result.success(fiveQuestionQuiz)
+        coEvery { quizRepository.recordAttempt("uid-1", "quiz-day-2", "Day 2 Quiz", 5, 5, 30) } returns
+            Result.success(QuizAttemptOutcome(passed = true, isFirstPass = false))
+
+        val vm = viewModel()
+        repeat(5) { index ->
+            vm.selectOption(0)
+            if (index < 4) vm.nextQuestion()
+        }
+        vm.nextQuestion()
+
+        val state = vm.uiState.value
+        assertTrue(state.passed)
+        assertEquals(0, state.xpEarned) // no NEW xp — this quiz was already passed before
+        assertTrue(state.isReviewPass)
+
         coVerify(exactly = 0) { userProfileRepository.addXp(any(), any()) }
         coVerify(exactly = 0) { userProfileRepository.advanceToTrack(any(), any()) }
     }

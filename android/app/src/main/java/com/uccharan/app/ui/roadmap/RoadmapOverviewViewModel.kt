@@ -23,11 +23,22 @@ data class RoadmapOverviewUiState(
     val isJumping: Boolean = false,
     val errorMessage: String? = null,
 ) {
-    /** [DayStatus.NOT_READY] is a day whose content hasn't been seeded yet (track/quizId null) — shown, but not tappable. */
+    /**
+     * [DayStatus.NOT_READY] is a day whose content hasn't been seeded yet
+     * (track/quizId null) — shown, but not tappable.
+     *
+     * COMPLETED is checked before CURRENT deliberately: reviewing an
+     * already-passed day repoints `currentTrack` to it the same way a
+     * forward jump does (see [reviewDay]), so a day the learner just came
+     * back to revise would otherwise flip from "done" to "you are here" —
+     * making finished progress look lost even though `passedQuizIds` never
+     * changed. Checking COMPLETED first keeps its checkmark no matter where
+     * `currentTrack` currently points.
+     */
     fun statusFor(day: RoadmapDay): DayStatus = when {
         day.track == null -> DayStatus.NOT_READY
-        day.track == currentTrack -> DayStatus.CURRENT
         day.quizId != null && day.quizId in passedQuizIds -> DayStatus.COMPLETED
+        day.track == currentTrack -> DayStatus.CURRENT
         else -> DayStatus.AVAILABLE
     }
 }
@@ -69,7 +80,7 @@ class RoadmapOverviewViewModel(
         }
     }
 
-    /** Opens the confirmation dialog — a jump is a deliberate action, never a stray tap. */
+    /** Opens the confirmation dialog for a forward/skip-ahead jump onto a day not yet completed — a genuine position change (days in between won't be marked done), so it's confirmed, never a stray tap. Reviewing an already-completed day skips this entirely — see [reviewDay]. */
     fun requestJump(day: RoadmapDay) {
         if (day.track == null || day.track == _uiState.value.currentTrack) return
         _uiState.update { it.copy(pendingJumpDay = day) }
@@ -78,21 +89,35 @@ class RoadmapOverviewViewModel(
     fun dismissJump() = _uiState.update { it.copy(pendingJumpDay = null) }
 
     fun confirmJump() {
-        val uid = authRepository.currentUser?.uid
         val track = _uiState.value.pendingJumpDay?.track
+        performJump(track) { _uiState.update { it.copy(pendingJumpDay = null) } }
+    }
+
+    /**
+     * Revisits an already-completed day immediately, with no confirmation
+     * dialog — unlike [requestJump] this isn't a destructive position change:
+     * `passedQuizIds` is untouched by simply being here, and retaking the
+     * quiz to revise is now safe too (a lower score on a review attempt can
+     * no longer erase the earlier pass — see [QuizRepository.recordAttempt]).
+     */
+    fun reviewDay(day: RoadmapDay) {
+        performJump(day.track) {}
+    }
+
+    private fun performJump(track: String?, onSettled: () -> Unit) {
+        val uid = authRepository.currentUser?.uid
         if (uid == null || track == null) {
-            _uiState.update { it.copy(pendingJumpDay = null) }
+            onSettled()
             return
         }
         _uiState.update { it.copy(isJumping = true) }
         viewModelScope.launch {
             userProfileRepository.advanceToTrack(uid, track)
-                .onSuccess {
-                    _uiState.update { it.copy(isJumping = false, pendingJumpDay = null, currentTrack = track) }
-                }
+                .onSuccess { _uiState.update { it.copy(isJumping = false, currentTrack = track) } }
                 .onFailure { error ->
-                    _uiState.update { it.copy(isJumping = false, pendingJumpDay = null, errorMessage = error.message ?: "Couldn't jump to that day") }
+                    _uiState.update { it.copy(isJumping = false, errorMessage = error.message ?: "Couldn't open that day") }
                 }
+            onSettled()
         }
     }
 }

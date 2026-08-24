@@ -11,6 +11,7 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.auth.GoogleAuthProvider
 import com.google.firebase.auth.PhoneAuthCredential
+import com.google.firebase.auth.UserProfileChangeRequest
 import com.uccharan.app.BuildConfig
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
@@ -28,6 +29,18 @@ class AuthRepository(
     val currentUser: FirebaseUser?
         get() = firebaseAuth.currentUser
 
+    /**
+     * A fresh Firebase ID token for the signed-in user, attached as
+     * `Authorization: Bearer <token>` on every backend call — the backend
+     * now rejects any correction or practice request without one (Tier 0
+     * lockdown: those endpoints reach Gemini, which costs real money, and
+     * the backend is a public URL with no other gate). `getIdToken(false)`
+     * returns the cached token unless it's expired, in which case the SDK
+     * silently refreshes it first — never forces a network refresh, so this
+     * is cheap to call on every request. Null if signed out.
+     */
+    suspend fun getIdToken(): String? = currentUser?.getIdToken(false)?.await()?.token
+
     /** Emits the current user on every sign-in/sign-out, including immediately on collection. */
     val authStateFlow: Flow<FirebaseUser?> = callbackFlow {
         val listener = FirebaseAuth.AuthStateListener { auth -> trySend(auth.currentUser) }
@@ -35,9 +48,22 @@ class AuthRepository(
         awaitClose { firebaseAuth.removeAuthStateListener(listener) }
     }
 
-    suspend fun signUpWithEmail(email: String, password: String): Result<FirebaseUser> = runCatching {
-        firebaseAuth.createUserWithEmailAndPassword(email, password).await().user
+    /**
+     * `displayName` is set via a separate [FirebaseUser.updateProfile] call
+     * right after account creation — `createUserWithEmailAndPassword` has no
+     * parameter for it. This is why [com.uccharan.app.data.repository.UserProfileRepository.ensureProfileExists]
+     * treats a blank stored name as something to patch later rather than
+     * final: this call's `updateProfile` and RootViewModel's own reactive
+     * `ensureProfileExists` (triggered by the SAME account creation) race,
+     * and the listener can win before this second call lands.
+     */
+    suspend fun signUpWithEmail(email: String, password: String, displayName: String): Result<FirebaseUser> = runCatching {
+        val user = firebaseAuth.createUserWithEmailAndPassword(email, password).await().user
             ?: error("Sign-up succeeded but returned no user")
+        if (displayName.isNotBlank()) {
+            user.updateProfile(UserProfileChangeRequest.Builder().setDisplayName(displayName).build()).await()
+        }
+        user
     }.withFriendlyAuthError()
 
     suspend fun signInWithEmail(email: String, password: String): Result<FirebaseUser> = runCatching {

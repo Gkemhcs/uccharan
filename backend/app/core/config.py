@@ -11,6 +11,10 @@ class Settings(BaseSettings):
     google_api_key: str
     gemini_model: str = "gemini-3.6-flash"
     cors_origins: str = "*"
+    # Not a secret — it's the same project id already baked into the seed
+    # scripts and the Android app's google-services.json. Auth verification
+    # only needs it to check a token's audience/issuer, never to sign anything.
+    firebase_project_id: str = "uccharan-87bcf"
 
     @property
     def cors_origin_list(self) -> list[str]:

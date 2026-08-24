@@ -1,10 +1,11 @@
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
+from app.core.auth import verify_firebase_token
 from app.core.config import Settings, get_settings
 from app.services.gemini_service import GeminiService, PracticeMessage, PracticeTurnResult
 
-router = APIRouter(prefix="/api/v1/practice", tags=["practice"])
+router = APIRouter(prefix="/api/v1/practice", tags=["practice"], dependencies=[Depends(verify_firebase_token)])
 
 
 class PracticeTurnRequest(BaseModel):

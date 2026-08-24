@@ -70,7 +70,7 @@ class LessonViewModelTest {
     @Test
     fun `correct attempt logs it, marks lesson complete, and awards xp`() = runTest {
         coEvery {
-            correctionApi.correctAttempt("Nice to meet you.", "Nice to meet you.", "Nanna", "Telugu")
+            correctionApi.correctAttempt("Nice to meet you.", "Nice to meet you.", "Nanna", "Telugu", emptyList())
         } returns Result.success(CorrectionResult(isCorrect = true, feedback = "Great job!", nativeExplanation = null))
 
         val viewModel = createViewModel()
@@ -85,9 +85,28 @@ class LessonViewModelTest {
     }
 
     @Test
+    fun `sends the lesson's focus sounds to the correction api and logs them on the attempt`() = runTest {
+        val lessonWithFocusSounds = lesson.copy(
+            prompt = lesson.prompt.copy(focusSounds = listOf("th")),
+        )
+        coEvery { lessonRepository.getLesson(lessonWithFocusSounds.id) } returns Result.success(lessonWithFocusSounds)
+        coEvery {
+            correctionApi.correctAttempt("Nice to meet you.", "I tink so.", "Nanna", "Telugu", listOf("th"))
+        } returns Result.success(CorrectionResult(isCorrect = false, feedback = "Watch the 'th' sound", nativeExplanation = null))
+
+        val viewModel = LessonViewModel(lessonWithFocusSounds.id, authRepository, userProfileRepository, lessonRepository, correctionApi)
+        viewModel.onSpeechRecognized("I tink so.")
+
+        coVerify {
+            correctionApi.correctAttempt("Nice to meet you.", "I tink so.", "Nanna", "Telugu", listOf("th"))
+        }
+        coVerify { lessonRepository.logAttempt(uid, match<LessonAttempt> { it.focusSounds == listOf("th") }) }
+    }
+
+    @Test
     fun `incorrect attempt logs it but does not mark the lesson complete`() = runTest {
         coEvery {
-            correctionApi.correctAttempt(any(), any(), any(), any())
+            correctionApi.correctAttempt(any(), any(), any(), any(), any())
         } returns Result.success(CorrectionResult(isCorrect = false, feedback = "Try again", nativeExplanation = null))
 
         val viewModel = createViewModel()
@@ -104,7 +123,7 @@ class LessonViewModelTest {
     @Test
     fun `backend failure surfaces an error message instead of crashing`() = runTest {
         coEvery {
-            correctionApi.correctAttempt(any(), any(), any(), any())
+            correctionApi.correctAttempt(any(), any(), any(), any(), any())
         } returns Result.failure(java.io.IOException("network down"))
 
         val viewModel = createViewModel()
@@ -118,7 +137,7 @@ class LessonViewModelTest {
     @Test
     fun `retry clears the previous result so the mic can be used again`() = runTest {
         coEvery {
-            correctionApi.correctAttempt(any(), any(), any(), any())
+            correctionApi.correctAttempt(any(), any(), any(), any(), any())
         } returns Result.success(CorrectionResult(isCorrect = false, feedback = "Try again", nativeExplanation = null))
 
         val viewModel = createViewModel()

@@ -19,6 +19,19 @@ import java.util.UUID
 /** How long a turn waits before assuming a Render free-tier cold start, not just normal Gemini latency. */
 private const val WAKING_UP_HINT_DELAY_MS = 6000L
 
+/** Flat XP for finishing a practice conversation — see [PracticeConversationViewModel.endSession]. */
+internal const val PRACTICE_SESSION_XP_REWARD = 15
+
+/** Below this many learner turns, ending a session earns no XP — otherwise tapping "end" the instant a conversation opens would be a free, zero-effort XP source. */
+internal const val MIN_LEARNER_TURNS_FOR_PRACTICE_XP = 3
+
+/** Shown once the learner explicitly ends a practice session — see [PracticeConversationViewModel.endSession]. */
+data class PracticeSessionSummary(
+    val learnerTurns: Int,
+    val xpEarned: Int,
+    val correctionsGiven: List<String>,
+)
+
 data class PracticeConversationUiState(
     val topic: String = "",
     val tutorGender: TutorGender = TutorGender.FEMALE,
@@ -29,6 +42,8 @@ data class PracticeConversationUiState(
     val isWakingUp: Boolean = false,
     val lastCorrection: String? = null,
     val lastNativeNote: String? = null,
+    /** Every distinct correction flagged so far this session, oldest first — the raw material for [PracticeSessionSummary], unlike [lastCorrection] which only ever holds the latest turn's. */
+    val correctionsGiven: List<String> = emptyList(),
     val errorMessage: String? = null,
     /**
      * Long-conversation memory, carried verbatim between turns — see the
@@ -36,6 +51,8 @@ data class PracticeConversationUiState(
      */
     val conversationSummary: String? = null,
     val summarizedThroughIndex: Int = 0,
+    /** Non-null once the learner has explicitly ended the session — see [PracticeConversationViewModel.endSession]. Its presence is what switches the screen to the recap view. */
+    val sessionSummary: PracticeSessionSummary? = null,
 )
 
 /**
@@ -166,6 +183,7 @@ class PracticeConversationViewModel(
                         messages = it.messages + PracticeMessage(speaker = "tutor", text = result.tutorReply),
                         lastCorrection = result.correction,
                         lastNativeNote = result.nativeNote,
+                        correctionsGiven = if (result.correction != null) it.correctionsGiven + result.correction else it.correctionsGiven,
                         conversationSummary = result.conversationSummary,
                         summarizedThroughIndex = result.summarizedThroughIndex,
                     )
@@ -176,6 +194,32 @@ class PracticeConversationViewModel(
                     it.copy(isWaitingForTutor = false, isWakingUp = false, errorMessage = error.message ?: "Couldn't reach the tutor — check your connection")
                 }
             }
+        }
+    }
+
+    /**
+     * Ends the session explicitly (an "End practice" action in the UI, not
+     * back-navigation — see [PracticeConversationScreen]) and shows a recap
+     * instead of just leaving the screen with no closure. Practice mode
+     * previously gave zero XP unlike lessons/quizzes; this is Tier 1's fix,
+     * gated on a minimum of real back-and-forth ([MIN_LEARNER_TURNS_FOR_PRACTICE_XP])
+     * so ending immediately isn't a free XP source, and idempotent (calling
+     * it again after a summary is already showing does nothing) so a stray
+     * double-tap can't double-award.
+     */
+    fun endSession() {
+        val state = _uiState.value
+        if (state.sessionSummary != null) return
+
+        val learnerTurns = state.messages.count { it.speaker == "learner" }
+        val xpEarned = if (learnerTurns >= MIN_LEARNER_TURNS_FOR_PRACTICE_XP) PRACTICE_SESSION_XP_REWARD else 0
+        _uiState.update {
+            it.copy(sessionSummary = PracticeSessionSummary(learnerTurns = learnerTurns, xpEarned = xpEarned, correctionsGiven = it.correctionsGiven))
+        }
+
+        if (xpEarned > 0) {
+            val uid = authRepository.currentUser?.uid ?: return
+            viewModelScope.launch { userProfileRepository.addXp(uid, xpEarned) }
         }
     }
 }

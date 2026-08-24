@@ -1,10 +1,11 @@
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
+from app.core.auth import verify_firebase_token
 from app.core.config import Settings, get_settings
 from app.services.gemini_service import CorrectionResult, GeminiService
 
-router = APIRouter(prefix="/api/v1", tags=["correction"])
+router = APIRouter(prefix="/api/v1", tags=["correction"], dependencies=[Depends(verify_firebase_token)])
 
 
 class CorrectionRequest(BaseModel):
@@ -19,6 +20,11 @@ class CorrectionRequest(BaseModel):
         default=None,
         description="Student's native language name, for a bilingual explanation alongside the English one.",
         examples=["Telugu"],
+    )
+    focus_sounds: list[str] = Field(
+        default_factory=list,
+        description="This lesson's curriculum-authored target pronunciation sound(s), e.g. ['th']. When feedback is about a likely mispronunciation, the tutor names one of these specifically instead of describing the mismatch abstractly.",
+        examples=[["th"]],
     )
 
 
@@ -37,4 +43,5 @@ def correct_attempt(
         spoken_text=request.spoken_text,
         preferred_address_term=request.preferred_address_term,
         native_language=request.native_language,
+        focus_sounds=request.focus_sounds,
     )

@@ -27,10 +27,29 @@ class LessonRepository(
         firestore.collection("lessons").document(lessonId).get().await().toObject(Lesson::class.java)
     }
 
-    /** Logs an attempt — see CURRICULUM.md §7: this is the whole data source for future weak-point analytics. */
+    /** Logs an attempt — see CURRICULUM.md §7: this is the whole data source for weak-point analytics (see [getRecentAttempts]). */
     suspend fun logAttempt(uid: String, attempt: LessonAttempt): Result<Unit> = runCatching {
         firestore.collection("users").document(uid).collection("attempts").add(attempt).await()
         Unit
+    }
+
+    /**
+     * Most recent attempts, newest first — the Profile screen's weak-point
+     * view aggregates these by `focusSounds` (see `computeWeakSounds`) to
+     * show which pronunciation sounds the learner is still struggling with.
+     * Capped rather than unbounded: after weeks of daily practice this
+     * collection can grow into the thousands, and the last couple hundred
+     * attempts are plenty to spot a pattern — a learner's weak sounds from
+     * three months ago aren't especially relevant to what to practice today.
+     */
+    suspend fun getRecentAttempts(uid: String, limit: Long = 200): Result<List<LessonAttempt>> = runCatching {
+        firestore.collection("users").document(uid)
+            .collection("attempts")
+            .orderBy("timestamp", com.google.firebase.firestore.Query.Direction.DESCENDING)
+            .limit(limit)
+            .get()
+            .await()
+            .toObjects(LessonAttempt::class.java)
     }
 
     suspend fun markLessonComplete(uid: String, lessonId: String): Result<Unit> = runCatching {

@@ -88,6 +88,7 @@ class LessonViewModel(
                 spokenText = spokenText,
                 preferredAddressTerm = preferredAddressTerm,
                 nativeLanguage = nativeLanguage,
+                focusSounds = lesson.prompt.focusSounds,
             ).onSuccess { result ->
                 wakingUpHintJob.cancel()
                 _uiState.update { it.copy(isCheckingAttempt = false, isWakingUp = false, correctionResult = result) }
@@ -115,6 +116,7 @@ class LessonViewModel(
                     isCorrect = result.isCorrect,
                     feedback = result.feedback,
                     nativeExplanation = result.nativeExplanation,
+                    focusSounds = lesson.prompt.focusSounds,
                 ),
             )
             if (result.isCorrect) {

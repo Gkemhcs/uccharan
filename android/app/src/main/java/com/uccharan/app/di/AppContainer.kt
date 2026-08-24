@@ -1,6 +1,7 @@
 package com.uccharan.app.di
 
 import com.uccharan.app.data.remote.CorrectionApi
+import com.uccharan.app.data.remote.ListeningApi
 import com.uccharan.app.data.remote.PracticeApi
 import com.uccharan.app.data.repository.AuthRepository
 import com.uccharan.app.data.repository.LessonRepository
@@ -18,6 +19,9 @@ class AppContainer {
     val userProfileRepository: UserProfileRepository by lazy { UserProfileRepository() }
     val lessonRepository: LessonRepository by lazy { LessonRepository() }
     val quizRepository: QuizRepository by lazy { QuizRepository() }
-    val correctionApi: CorrectionApi by lazy { CorrectionApi() }
-    val practiceApi: PracticeApi by lazy { PracticeApi() }
+    // Both APIs need a fresh Firebase ID token per call — the backend rejects
+    // /correct and /practice/* requests without one (see backend app/core/auth.py).
+    val correctionApi: CorrectionApi by lazy { CorrectionApi(idTokenProvider = { authRepository.getIdToken() }) }
+    val practiceApi: PracticeApi by lazy { PracticeApi(idTokenProvider = { authRepository.getIdToken() }) }
+    val listeningApi: ListeningApi by lazy { ListeningApi(idTokenProvider = { authRepository.getIdToken() }) }
 }

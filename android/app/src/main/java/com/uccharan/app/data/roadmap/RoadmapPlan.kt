@@ -31,8 +31,8 @@ package com.uccharan.app.data.roadmap
  * richer and more immersive than just handing the bare theme text to the
  * tutor persona prompt. Left null on days that are more grammar-abstract
  * than situational (e.g. capstones, hypotheticals); those fall back to the
- * theme text, unchanged from before. See also [PracticeScenarioPickerScreen]
- * for the curated/custom-topic path this complements, not replaces.
+ * theme text, unchanged from before. See also `PracticeTabScreen`'s curated
+ * situations list and custom-topic field, which this complements, not replaces.
  */
 data class RoadmapDay(
     val day: Int,

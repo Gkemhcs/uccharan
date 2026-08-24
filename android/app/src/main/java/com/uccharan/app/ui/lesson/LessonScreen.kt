@@ -181,6 +181,10 @@ fun LessonScreen(lessonId: String, onLessonFinished: () -> Unit) {
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
+                    if (lesson.prompt.focusSounds.isNotEmpty() && uiState.correctionResult == null) {
+                        Spacer(modifier = Modifier.height(10.dp))
+                        FocusSoundTip(sounds = lesson.prompt.focusSounds)
+                    }
                 }
 
                 Spacer(modifier = Modifier.weight(1f))
@@ -243,6 +247,36 @@ fun LessonScreen(lessonId: String, onLessonFinished: () -> Unit) {
                 }
             }
         }
+    }
+}
+
+/**
+ * Surfaces this lesson's curriculum-authored target pronunciation sound(s)
+ * before the learner attempts it — [Lesson.prompt]'s `focusSounds` was
+ * authored into every lesson from the start but never actually shown to the
+ * learner or sent to the backend until now. The same list is also sent to
+ * `/api/v1/correct` (see [com.uccharan.app.ui.lesson.LessonViewModel]) so
+ * feedback can name the specific sound instead of describing the mismatch
+ * abstractly — this tip is the "before" half of that, so the learner knows
+ * what to listen for in their own attempt too.
+ */
+@Composable
+private fun FocusSoundTip(sounds: List<String>) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .clip(RoundedCornerShape(10.dp))
+            .background(MaterialTheme.colorScheme.primaryContainer)
+            .padding(horizontal = 12.dp, vertical = 8.dp),
+    ) {
+        Text("🎯", style = MaterialTheme.typography.bodyMedium)
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(
+            "Listen for the ${sounds.joinToString(", ")} sound${if (sounds.size > 1) "s" else ""}",
+            style = MaterialTheme.typography.bodySmall,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onPrimaryContainer,
+        )
     }
 }
 

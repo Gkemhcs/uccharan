@@ -22,5 +22,7 @@ data class LessonAttempt(
     val isCorrect: Boolean = false,
     val feedback: String = "",
     val nativeExplanation: String? = null,
+    /** This lesson's curriculum-authored target pronunciation sound(s) (may be empty) — the weak-point analytics aggregate accuracy per sound across attempts using this. */
+    val focusSounds: List<String> = emptyList(),
     @ServerTimestamp val timestamp: Date? = null,
 )

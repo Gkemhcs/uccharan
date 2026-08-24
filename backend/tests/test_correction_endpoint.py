@@ -56,6 +56,32 @@ def test_correct_attempt_passes_address_term_and_native_language_through(client)
     assert fake.last_call_kwargs["native_language"] == "Telugu"
 
 
+def test_correct_attempt_passes_focus_sounds_through(client):
+    fake = _override_gemini(CorrectionResult(is_correct=True, feedback="Well done!"))
+
+    response = client.post(
+        "/api/v1/correct",
+        json={"target_sentence": "I think that.", "spoken_text": "I think that.", "focus_sounds": ["th"]},
+    )
+
+    app.dependency_overrides.clear()
+    assert response.status_code == 200
+    assert fake.last_call_kwargs["focus_sounds"] == ["th"]
+
+
+def test_correct_attempt_defaults_focus_sounds_to_empty_list(client):
+    fake = _override_gemini(CorrectionResult(is_correct=True, feedback="Well done!"))
+
+    response = client.post(
+        "/api/v1/correct",
+        json={"target_sentence": "I am happy.", "spoken_text": "I am happy."},
+    )
+
+    app.dependency_overrides.clear()
+    assert response.status_code == 200
+    assert fake.last_call_kwargs["focus_sounds"] == []
+
+
 def test_correct_attempt_rejects_empty_spoken_text(client):
     response = client.post(
         "/api/v1/correct",

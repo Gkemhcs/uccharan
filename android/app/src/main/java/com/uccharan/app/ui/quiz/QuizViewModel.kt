@@ -26,6 +26,8 @@ data class QuizUiState(
     val isFinished: Boolean = false,
     val passed: Boolean = false,
     val xpEarned: Int = 0,
+    /** True when this pass wasn't the first — a revision retake of an already-passed quiz. No new XP is awarded and no day is newly unlocked, so the result screen should say so instead of repeating the first-pass copy. */
+    val isReviewPass: Boolean = false,
     val tutorGender: TutorGender = TutorGender.FEMALE,
     val errorMessage: String? = null,
 ) {
@@ -94,24 +96,36 @@ class QuizViewModel(
         }
     }
 
+    /**
+     * A quiz can be retaken any number of times to revise — see
+     * [QuizRepository.recordAttempt]. XP and next-day unlock must only ever
+     * happen once per quiz though: without gating on `isFirstPass`, retaking
+     * an already-passed quiz for practice would re-award XP every time, and
+     * — worse — would push `currentTrack` forward to whatever comes after
+     * THIS day, even if the learner is reviewing an old day while genuinely
+     * further ahead, silently regressing their real position.
+     */
     private fun finish() {
         val state = _uiState.value
         val quiz = state.quiz ?: return
         val totalCount = quiz.questions.size
-        val passed = totalCount > 0 && state.correctCount.toDouble() / totalCount >= QUIZ_PASS_THRESHOLD
-        val xpEarned = if (passed) quiz.xpReward else 0
+        val passedThisAttempt = totalCount > 0 && state.correctCount.toDouble() / totalCount >= QUIZ_PASS_THRESHOLD
+        val potentialXp = if (passedThisAttempt) quiz.xpReward else 0
 
-        _uiState.update { it.copy(isFinished = true, passed = passed, xpEarned = xpEarned) }
+        _uiState.update { it.copy(isFinished = true, passed = passedThisAttempt, xpEarned = 0, isReviewPass = false) }
 
         val uid = authRepository.currentUser?.uid ?: return
         viewModelScope.launch {
-            quizRepository.recordAttempt(uid, quiz.id, quiz.title, state.correctCount, totalCount, xpEarned)
-            if (passed) {
-                if (xpEarned > 0) userProfileRepository.addXp(uid, xpEarned)
-                nextRoadmapDay(quiz.track)?.track?.let { nextTrack ->
-                    userProfileRepository.advanceToTrack(uid, nextTrack)
+            quizRepository.recordAttempt(uid, quiz.id, quiz.title, state.correctCount, totalCount, potentialXp)
+                .onSuccess { outcome ->
+                    _uiState.update { it.copy(xpEarned = if (outcome.isFirstPass) potentialXp else 0, isReviewPass = passedThisAttempt && !outcome.isFirstPass) }
+                    if (outcome.isFirstPass) {
+                        if (potentialXp > 0) userProfileRepository.addXp(uid, potentialXp)
+                        nextRoadmapDay(quiz.track)?.track?.let { nextTrack ->
+                            userProfileRepository.advanceToTrack(uid, nextTrack)
+                        }
+                    }
                 }
-            }
         }
     }
 }

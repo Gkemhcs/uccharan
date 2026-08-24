@@ -56,7 +56,7 @@ import com.uccharan.app.ui.tutor.tutorGenderFromStorage
 fun ProfileScreen(onBack: () -> Unit) {
     val container = LocalAppContainer.current
     val viewModel = uccharanViewModel {
-        ProfileViewModel(container.authRepository, container.userProfileRepository, container.quizRepository)
+        ProfileViewModel(container.authRepository, container.userProfileRepository, container.quizRepository, container.lessonRepository)
     }
     val uiState by viewModel.uiState.collectAsState()
     val gradients = LocalUccharanGradients.current
@@ -152,6 +152,21 @@ fun ProfileScreen(onBack: () -> Unit) {
                         }
                         weeksInLevel.forEach { weekProgress ->
                             WeekProgressRow(weekProgress)
+                            Spacer(modifier = Modifier.height(8.dp))
+                        }
+                    }
+
+                    if (uiState.weakSounds.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(20.dp))
+                        Text("Sounds to practice", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold)
+                        Text(
+                            "Based on your recent lesson attempts",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                        uiState.weakSounds.forEach { weakSound ->
+                            WeakSoundRow(weakSound)
                             Spacer(modifier = Modifier.height(8.dp))
                         }
                     }
@@ -302,6 +317,28 @@ private fun WeekProgressRow(progress: WeekProgress) {
                     WeekStatus.IN_PROGRESS -> "${progress.daysComplete} of ${progress.daysWithContent} days done"
                     WeekStatus.NOT_AVAILABLE -> "Coming soon"
                 },
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+@Composable
+private fun WeakSoundRow(weakSound: WeakSound) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(14.dp))
+            .background(MaterialTheme.colorScheme.surface)
+            .padding(horizontal = 16.dp, vertical = 13.dp),
+    ) {
+        Text("🎯", style = MaterialTheme.typography.titleMedium)
+        Column(modifier = Modifier.weight(1f).padding(start = 12.dp)) {
+            Text("\"${weakSound.sound}\" sound", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+            Text(
+                "${(weakSound.accuracy * 100).toInt()}% correct over ${weakSound.attempts} attempts",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

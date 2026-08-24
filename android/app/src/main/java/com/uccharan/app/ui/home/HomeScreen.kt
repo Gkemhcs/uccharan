@@ -25,10 +25,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowForward
-import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.automirrored.filled.List
-import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Star
@@ -70,11 +67,8 @@ import com.uccharan.app.ui.theme.LocalUccharanGradients
 @Composable
 fun HomeScreen(
     onLessonClick: (String) -> Unit,
-    onProfileClick: () -> Unit,
     onQuizClick: (String) -> Unit,
-    onPracticeClick: (String) -> Unit,
     onRoadmapOverviewClick: () -> Unit,
-    onPracticeScenarioPickerClick: () -> Unit,
 ) {
     val container = LocalAppContainer.current
     val viewModel = uccharanViewModel {
@@ -129,29 +123,16 @@ fun HomeScreen(
                     )
                 }
 
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(
-                        modifier = Modifier.size(40.dp).clip(CircleShape).clickable(onClick = onRoadmapOverviewClick),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Icon(
-                            Icons.AutoMirrored.Filled.List,
-                            contentDescription = "Full roadmap — see every day, jump ahead",
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(24.dp),
-                        )
-                    }
-                    Box(
-                        modifier = Modifier.size(40.dp).clip(CircleShape).clickable(onClick = onProfileClick),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Icon(
-                            Icons.Filled.AccountCircle,
-                            contentDescription = "Profile & settings",
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(28.dp),
-                        )
-                    }
+                Box(
+                    modifier = Modifier.size(40.dp).clip(CircleShape).clickable(onClick = onRoadmapOverviewClick),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        Icons.AutoMirrored.Filled.List,
+                        contentDescription = "Full roadmap — see every day, jump ahead",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(24.dp),
+                    )
                 }
             }
 
@@ -165,20 +146,6 @@ fun HomeScreen(
                         )
                     }
                 }
-            }
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // Practice is always tied to today's topic — no free-pick menu, see PracticeConversationViewModel's doc.
-            // `practiceScenario` gives Gemini a concrete real-world situation (e.g. "negotiate
-            // an auto-rickshaw fare") instead of just the bare theme text, where one is curated.
-            PracticeEntryCard(onClick = { uiState.day?.let { onPracticeClick(it.practiceScenario ?: it.theme) } })
-            Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp), horizontalArrangement = androidx.compose.foundation.layout.Arrangement.End) {
-                Text(
-                    "Or practice a different situation →",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.clickable(onClick = onPracticeScenarioPickerClick).padding(vertical = 6.dp),
-                )
             }
             Spacer(modifier = Modifier.height(14.dp))
 
@@ -284,52 +251,6 @@ fun HomeScreen(
                 }
             }
         }
-    }
-}
-
-@Composable
-private fun PracticeEntryCard(onClick: () -> Unit) {
-    val gradients = LocalUccharanGradients.current
-
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 24.dp)
-            .shadow(elevation = 12.dp, shape = RoundedCornerShape(18.dp), ambientColor = MaterialTheme.colorScheme.tertiary, spotColor = MaterialTheme.colorScheme.tertiary)
-            .clip(RoundedCornerShape(18.dp))
-            .background(gradients.amberBadge)
-            .clickable(onClick = onClick)
-            .padding(16.dp),
-    ) {
-        Box(
-            modifier = Modifier
-                .size(42.dp)
-                .clip(CircleShape)
-                .background(gradients.onAmberBadge.copy(alpha = 0.18f)),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(
-                Icons.AutoMirrored.Filled.Chat,
-                contentDescription = null,
-                tint = gradients.onAmberBadge,
-                modifier = Modifier.size(20.dp),
-            )
-        }
-        Column(modifier = Modifier.weight(1f).padding(start = 14.dp)) {
-            Text("Practice with your Tutor", style = MaterialTheme.typography.titleMedium, color = gradients.onAmberBadge)
-            Text(
-                "Have a real spoken conversation, anytime",
-                style = MaterialTheme.typography.bodySmall,
-                color = gradients.onAmberBadge,
-            )
-        }
-        Icon(
-            Icons.AutoMirrored.Filled.ArrowForward,
-            contentDescription = null,
-            tint = gradients.onAmberBadge,
-            modifier = Modifier.size(16.dp),
-        )
     }
 }
 

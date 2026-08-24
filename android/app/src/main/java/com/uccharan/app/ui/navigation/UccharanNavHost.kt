@@ -16,11 +16,10 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.uccharan.app.di.LocalAppContainer
 import com.uccharan.app.di.uccharanViewModel
-import com.uccharan.app.ui.home.HomeScreen
 import com.uccharan.app.ui.lesson.LessonScreen
+import com.uccharan.app.ui.listening.ListeningScreen
 import com.uccharan.app.ui.onboarding.OnboardingScreen
 import com.uccharan.app.ui.practice.PracticeConversationScreen
-import com.uccharan.app.ui.practice.PracticeScenarioPickerScreen
 import com.uccharan.app.ui.profile.ProfileScreen
 import com.uccharan.app.ui.quiz.QuizScreen
 import com.uccharan.app.ui.roadmap.RoadmapOverviewScreen
@@ -29,12 +28,12 @@ import com.uccharan.app.ui.signin.SignInScreen
 private object Routes {
     const val SIGN_IN = "sign_in"
     const val ONBOARDING = "onboarding"
-    const val HOME = "home"
+    const val MAIN = "main"
     const val PROFILE = "profile"
     const val LESSON = "lesson/{lessonId}"
     const val QUIZ = "quiz/{quizId}"
     const val PRACTICE_CONVERSATION = "practice/{topic}"
-    const val PRACTICE_SCENARIO_PICKER = "practice_scenario_picker"
+    const val LISTENING_PRACTICE = "listening/{topic}"
     const val ROADMAP_OVERVIEW = "roadmap_overview"
     fun lesson(lessonId: String) = "lesson/$lessonId"
     fun quiz(quizId: String) = "quiz/$quizId"
@@ -47,6 +46,7 @@ private object Routes {
     // used here instead: they're x-www-form-urlencoded, which encodes a space as '+' rather
     // than '%20' — Navigation's Uri-based decoding leaves a literal '+' as '+', not a space).
     fun practiceConversation(topic: String) = "practice/${Uri.encode(topic)}"
+    fun listeningPractice(topic: String) = "listening/${Uri.encode(topic)}"
 }
 
 @Composable
@@ -68,15 +68,15 @@ fun UccharanNavHost(navController: NavHostController = rememberNavController()) 
                 navController.navigate(Routes.ONBOARDING) { popUpTo(0) }
             }
             AppStartState.Ready -> {
-                val stillOnASubScreen = currentRoute == Routes.HOME ||
+                val stillOnASubScreen = currentRoute == Routes.MAIN ||
                     currentRoute == Routes.PROFILE ||
                     currentRoute == Routes.ROADMAP_OVERVIEW ||
-                    currentRoute == Routes.PRACTICE_SCENARIO_PICKER ||
                     currentRoute.orEmpty().startsWith("lesson/") ||
                     currentRoute.orEmpty().startsWith("quiz/") ||
-                    currentRoute.orEmpty().startsWith("practice/")
+                    currentRoute.orEmpty().startsWith("practice/") ||
+                    currentRoute.orEmpty().startsWith("listening/")
                 if (!stillOnASubScreen) {
-                    navController.navigate(Routes.HOME) { popUpTo(0) }
+                    navController.navigate(Routes.MAIN) { popUpTo(0) }
                 }
             }
             AppStartState.Loading -> Unit
@@ -91,25 +91,21 @@ fun UccharanNavHost(navController: NavHostController = rememberNavController()) 
     NavHost(navController = navController, startDestination = Routes.SIGN_IN) {
         composable(Routes.SIGN_IN) { SignInScreen() }
         composable(Routes.ONBOARDING) { OnboardingScreen(onOnboardingComplete = rootViewModel::markOnboardingComplete) }
-        composable(Routes.HOME) {
-            HomeScreen(
+        composable(Routes.MAIN) {
+            MainShellScreen(
                 onLessonClick = { lessonId -> navController.navigate(Routes.lesson(lessonId)) },
-                onProfileClick = { navController.navigate(Routes.PROFILE) },
                 onQuizClick = { quizId -> navController.navigate(Routes.quiz(quizId)) },
-                // Practice is always tied to today's topic — no free-pick menu, straight to the conversation.
-                onPracticeClick = { topic -> navController.navigate(Routes.practiceConversation(topic)) },
                 onRoadmapOverviewClick = { navController.navigate(Routes.ROADMAP_OVERVIEW) },
-                onPracticeScenarioPickerClick = { navController.navigate(Routes.PRACTICE_SCENARIO_PICKER) },
+                onProfileClick = { navController.navigate(Routes.PROFILE) },
+                // Practice is always tied to a concrete topic — today's lesson, a curated
+                // situation, or a learner-typed one — straight to the conversation, never
+                // an open-ended "no fixed topic" mode. See PracticeConversationViewModel's doc.
+                onPracticeSituationChosen = { topic -> navController.navigate(Routes.practiceConversation(topic)) },
+                onListeningPracticeClick = { topic -> navController.navigate(Routes.listeningPractice(topic)) },
             )
         }
         composable(Routes.ROADMAP_OVERVIEW) {
             RoadmapOverviewScreen(onBack = { navController.popBackStack() })
-        }
-        composable(Routes.PRACTICE_SCENARIO_PICKER) {
-            PracticeScenarioPickerScreen(
-                onBack = { navController.popBackStack() },
-                onSituationChosen = { situation -> navController.navigate(Routes.practiceConversation(situation)) },
-            )
         }
         composable(Routes.PROFILE) {
             ProfileScreen(onBack = { navController.popBackStack() })
@@ -125,6 +121,10 @@ fun UccharanNavHost(navController: NavHostController = rememberNavController()) 
         composable(Routes.PRACTICE_CONVERSATION) { backStackEntry ->
             val topic = backStackEntry.arguments?.getString("topic") ?: return@composable
             PracticeConversationScreen(topic = topic, onBack = { navController.popBackStack() })
+        }
+        composable(Routes.LISTENING_PRACTICE) { backStackEntry ->
+            val topic = backStackEntry.arguments?.getString("topic") ?: return@composable
+            ListeningScreen(topic = topic, onBack = { navController.popBackStack() })
         }
     }
 }
