@@ -28,6 +28,7 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.PhoneAuthCredential
 import com.google.firebase.auth.PhoneAuthOptions
 import com.google.firebase.auth.PhoneAuthProvider
+import com.uccharan.app.data.repository.friendlyAuthErrorMessage
 import com.uccharan.app.di.LocalAppContainer
 import com.uccharan.app.di.uccharanViewModel
 import java.util.concurrent.TimeUnit
@@ -124,7 +125,7 @@ private fun startPhoneVerification(context: android.content.Context, phoneNumber
             }
 
             override fun onVerificationFailed(exception: FirebaseException) {
-                viewModel.onVerificationFailed(exception.message ?: "Couldn't verify this number")
+                viewModel.onVerificationFailed(friendlyAuthErrorMessage(exception))
             }
 
             override fun onCodeSent(verificationId: String, token: PhoneAuthProvider.ForceResendingToken) {

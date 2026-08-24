@@ -15,6 +15,8 @@ data class UccharanGradients(
     val primaryButton: Brush,
     val primaryIcon: Brush,
     val amberBadge: Brush,
+    /** The correct content color for text/icons drawn on top of [amberBadge] — see Color.kt's OnAmberBadge* doc for why this can't just be `colorScheme.onTertiary`. */
+    val onAmberBadge: Color,
     val listening: Brush,
 )
 
@@ -22,6 +24,7 @@ private val LightGradients = UccharanGradients(
     primaryButton = Brush.linearGradient(listOf(Color(0xFF1B7D7A), Color(0xFF146C6B), Color(0xFF0E4B49))),
     primaryIcon = Brush.linearGradient(listOf(Color(0xFF1B7D7A), Color(0xFF0E4B49))),
     amberBadge = Brush.linearGradient(listOf(Color(0xFFFFE7BE), Color(0xFFFFD79A))),
+    onAmberBadge = OnAmberBadgeLight,
     listening = Brush.linearGradient(listOf(Color(0xFFD96257), Color(0xFFC8524A), Color(0xFF9E362F))),
 )
 
@@ -29,6 +32,7 @@ private val DarkGradients = UccharanGradients(
     primaryButton = Brush.linearGradient(listOf(Color(0xFF8FE3DE), Color(0xFF7FDAD5), Color(0xFF4AA8A2))),
     primaryIcon = Brush.linearGradient(listOf(Color(0xFF8FE3DE), Color(0xFF5FC4BF))),
     amberBadge = Brush.linearGradient(listOf(Color(0xFF4A3512), Color(0xFF3A2A0E))),
+    onAmberBadge = OnAmberBadgeDark,
     listening = Brush.linearGradient(listOf(Color(0xFFD96257), Color(0xFFC8524A), Color(0xFF9E362F))),
 )
 

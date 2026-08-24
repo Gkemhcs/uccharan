@@ -19,12 +19,11 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
-        // TEMPORARY: cloudflared quick tunnel to local dev backend, while Render
-        // deploy is being sorted out. This URL changes every time the tunnel is
-        // restarted (see backend/README.md) — replace with the real Render URL
-        // once that's deployed, and physical-device testing should use whichever
-        // of these is actually reachable (10.0.2.2 only works on the emulator).
-        buildConfigField("String", "BACKEND_BASE_URL", "\"https://pound-gain-defeat-minneapolis.trycloudflare.com\"")
+        // Render free tier: the backend spins down after ~15 min idle and can
+        // take up to a minute to wake back up on the next request — see
+        // BackendErrors.kt / the isWakingUp handling in LessonViewModel and
+        // PracticeConversationViewModel for the user-facing side of this.
+        buildConfigField("String", "BACKEND_BASE_URL", "\"https://uccharan-backend.onrender.com\"")
 
         // Web-application OAuth client ID from google-services.json (oauth_client
         // type 3) — required by Credential Manager's GetGoogleIdOption. Not a
@@ -50,6 +49,16 @@ android {
     buildFeatures {
         compose = true
         buildConfig = true
+    }
+    testOptions {
+        unitTests {
+            // Plain JVM unit tests have no real Android runtime, so calls like
+            // android.util.Log.d(...) throw "not mocked" by default. This makes
+            // any unmocked android.* call return a default value (0/null/false)
+            // instead — the standard fix, and safer than avoiding android.util.Log
+            // in production code just to keep tests happy.
+            isReturnDefaultValues = true
+        }
     }
 }
 

@@ -9,6 +9,9 @@ import com.uccharan.app.data.remote.CorrectionResult
 import com.uccharan.app.data.repository.AuthRepository
 import com.uccharan.app.data.repository.LessonRepository
 import com.uccharan.app.data.repository.UserProfileRepository
+import com.uccharan.app.ui.tutor.TutorGender
+import com.uccharan.app.ui.tutor.tutorGenderFromStorage
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -23,8 +26,14 @@ data class LessonUiState(
     val lastSpokenText: String? = null,
     val correctionResult: CorrectionResult? = null,
     val isLessonComplete: Boolean = false,
+    val tutorGender: TutorGender = TutorGender.FEMALE,
+    /** True once a correction request has been in flight a while — see [LessonViewModel.onSpeechRecognized]. */
+    val isWakingUp: Boolean = false,
     val errorMessage: String? = null,
 )
+
+/** How long a correction request waits before assuming a Render free-tier cold start, not just normal Gemini latency. */
+private const val WAKING_UP_HINT_DELAY_MS = 6000L
 
 class LessonViewModel(
     private val lessonId: String,
@@ -46,6 +55,7 @@ class LessonViewModel(
                 userProfileRepository.getProfile(uid).getOrNull()?.let { profile ->
                     nativeLanguage = profile.nativeLanguage
                     preferredAddressTerm = profile.preferredAddressTerm
+                    _uiState.update { it.copy(tutorGender = tutorGenderFromStorage(profile.tutorGender)) }
                 }
             }
 
@@ -64,7 +74,13 @@ class LessonViewModel(
     fun onSpeechRecognized(spokenText: String) {
         val lesson = _uiState.value.lesson ?: return
         _uiState.update {
-            it.copy(isListening = false, isCheckingAttempt = true, lastSpokenText = spokenText, correctionResult = null, errorMessage = null)
+            it.copy(isListening = false, isCheckingAttempt = true, isWakingUp = false, lastSpokenText = spokenText, correctionResult = null, errorMessage = null)
+        }
+        // Most corrections come back in a couple seconds — only after a real
+        // wait do we suggest a cold start, rather than assuming it up front.
+        val wakingUpHintJob = viewModelScope.launch {
+            delay(WAKING_UP_HINT_DELAY_MS)
+            _uiState.update { it.copy(isWakingUp = true) }
         }
         viewModelScope.launch {
             correctionApi.correctAttempt(
@@ -73,11 +89,13 @@ class LessonViewModel(
                 preferredAddressTerm = preferredAddressTerm,
                 nativeLanguage = nativeLanguage,
             ).onSuccess { result ->
-                _uiState.update { it.copy(isCheckingAttempt = false, correctionResult = result) }
+                wakingUpHintJob.cancel()
+                _uiState.update { it.copy(isCheckingAttempt = false, isWakingUp = false, correctionResult = result) }
                 logAttemptAndMaybeComplete(lesson, spokenText, result)
             }.onFailure { error ->
+                wakingUpHintJob.cancel()
                 _uiState.update {
-                    it.copy(isCheckingAttempt = false, errorMessage = error.message ?: "Couldn't reach the tutor — check your connection")
+                    it.copy(isCheckingAttempt = false, isWakingUp = false, errorMessage = error.message ?: "Couldn't reach the tutor — check your connection")
                 }
             }
         }

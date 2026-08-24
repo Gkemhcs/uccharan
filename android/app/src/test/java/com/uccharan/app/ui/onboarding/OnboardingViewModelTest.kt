@@ -4,6 +4,7 @@ import com.google.firebase.auth.FirebaseUser
 import com.uccharan.app.MainDispatcherRule
 import com.uccharan.app.data.repository.AuthRepository
 import com.uccharan.app.data.repository.UserProfileRepository
+import com.uccharan.app.ui.tutor.TutorGender
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
@@ -33,7 +34,7 @@ class OnboardingViewModelTest {
 
     @Test
     fun `continue saves the selected language and address term, then completes`() = runTest {
-        coEvery { userProfileRepository.completeOnboarding(uid, "Telugu", "Nanna") } returns Result.success(Unit)
+        coEvery { userProfileRepository.completeOnboarding(uid, "Telugu", "Nanna", null) } returns Result.success(Unit)
         var completed = false
 
         val viewModel = createViewModel(onComplete = { completed = true })
@@ -41,25 +42,38 @@ class OnboardingViewModelTest {
         viewModel.onAddressTermChange("Nanna")
         viewModel.onContinue()
 
-        coVerify { userProfileRepository.completeOnboarding(uid, "Telugu", "Nanna") }
+        coVerify { userProfileRepository.completeOnboarding(uid, "Telugu", "Nanna", null) }
+        assertTrue(completed)
+    }
+
+    @Test
+    fun `continue saves the selected tutor gender`() = runTest {
+        coEvery { userProfileRepository.completeOnboarding(uid, null, null, "male") } returns Result.success(Unit)
+        var completed = false
+
+        val viewModel = createViewModel(onComplete = { completed = true })
+        viewModel.onTutorGenderSelected(TutorGender.MALE)
+        viewModel.onContinue()
+
+        coVerify { userProfileRepository.completeOnboarding(uid, null, null, "male") }
         assertTrue(completed)
     }
 
     @Test
     fun `skip saves null preferences and still completes`() = runTest {
-        coEvery { userProfileRepository.completeOnboarding(uid, null, null) } returns Result.success(Unit)
+        coEvery { userProfileRepository.completeOnboarding(uid, null, null, null) } returns Result.success(Unit)
         var completed = false
 
         val viewModel = createViewModel(onComplete = { completed = true })
         viewModel.onSkip()
 
-        coVerify { userProfileRepository.completeOnboarding(uid, null, null) }
+        coVerify { userProfileRepository.completeOnboarding(uid, null, null, null) }
         assertTrue(completed)
     }
 
     @Test
     fun `save failure surfaces an error and does not call onComplete`() = runTest {
-        coEvery { userProfileRepository.completeOnboarding(any(), any(), any()) } returns
+        coEvery { userProfileRepository.completeOnboarding(any(), any(), any(), any()) } returns
             Result.failure(RuntimeException("offline"))
         var completed = false
 

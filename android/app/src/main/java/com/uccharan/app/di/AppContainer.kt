@@ -1,8 +1,10 @@
 package com.uccharan.app.di
 
 import com.uccharan.app.data.remote.CorrectionApi
+import com.uccharan.app.data.remote.PracticeApi
 import com.uccharan.app.data.repository.AuthRepository
 import com.uccharan.app.data.repository.LessonRepository
+import com.uccharan.app.data.repository.QuizRepository
 import com.uccharan.app.data.repository.UserProfileRepository
 
 /**
@@ -15,5 +17,7 @@ class AppContainer {
     val authRepository: AuthRepository by lazy { AuthRepository() }
     val userProfileRepository: UserProfileRepository by lazy { UserProfileRepository() }
     val lessonRepository: LessonRepository by lazy { LessonRepository() }
+    val quizRepository: QuizRepository by lazy { QuizRepository() }
     val correctionApi: CorrectionApi by lazy { CorrectionApi() }
+    val practiceApi: PracticeApi by lazy { PracticeApi() }
 }

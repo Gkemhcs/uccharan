@@ -1,5 +1,6 @@
 package com.uccharan.app.data.model
 
+import com.google.firebase.firestore.PropertyName
 import com.google.firebase.firestore.ServerTimestamp
 import java.util.Date
 
@@ -13,6 +14,11 @@ data class LessonAttempt(
     val lessonId: String = "",
     val targetSentence: String = "",
     val spokenText: String = "",
+    // See the identical annotation on QuizOption.isCorrect — same Kotlin/Firestore
+    // "is"-prefixed boolean getter quirk. Currently write-only (never read back
+    // into this class yet), but pinned now so it doesn't silently break whenever
+    // weak-point analytics starts reading these back.
+    @get:PropertyName("isCorrect")
     val isCorrect: Boolean = false,
     val feedback: String = "",
     val nativeExplanation: String? = null,

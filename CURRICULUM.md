@@ -242,6 +242,74 @@ Android side still pending (Phase 1): onboarding screen asks native
 language + preferred address term once, stores both in the user's Firestore
 profile, and every `/api/v1/correct` call after that includes them.
 
+## 8. The 30-day parent track — researched, seeded content (Aug 2026)
+
+Built for a specific, concrete audience: two adult beginners in Andhra
+Pradesh, native Telugu speakers, 10-15 min/day. Grounded in three actual
+research passes rather than assumption, before any content was written:
+
+- **Adult ESL curriculum design.** Adult learners want immediate,
+  practical relevance, not abstract grammar drilling. Standard "survival
+  English" sequencing for a first course is: greetings → personal
+  info/numbers/dates/time → directions → food → health/work — the exact
+  order this 30-day plan follows for Week 1.
+  ([ALULA](https://alulaenglish.com/blog/75/how-to-design-an-effective-english-curriculum-for-adults/),
+  [ESL Home](https://eslhome.org/beginner-english-course-for-adults/))
+- **Telugu-speaker L1 interference.** Published research on Telugu (and
+  related Dravidian-language) speakers of English finds L1 interference
+  affects the large majority of learners, concentrated in omission,
+  addition, selection, and ordering errors — matching exactly the error
+  categories this content's grammar notes target (dropped articles,
+  dropped linking words like "of" and "as a", literal-translation calques
+  like "myself Ravi" or "my head is paining", and unfamiliarity with
+  English tag questions, since Telugu has no direct equivalent).
+  ([academia.edu](https://www.academia.edu/1834498/To_Correct_or_Not_to_Correct_Usual_and_Unusual_Errors_among_Telugu_Speakers_of_English),
+  [ERIC](https://files.eric.ed.gov/fulltext/EJ1440877.pdf))
+- **CEFR A1 phrase selection.** Every seeded target sentence is a genuine
+  high-frequency A1 phrase (500-600 word families is the typical A1
+  vocabulary size), not an invented example.
+  ([cefr.app](https://www.cefr.app/levels/en-english/A1),
+  [Yak Yacker](https://yakyacker.com/learn-english/cefr-a1-english-curriculum/))
+- **Bilingual (L1) glossing.** Meta-analyses of L2 vocabulary learning
+  find L1-language glosses outperform L2-only definitions specifically at
+  the beginner stage, with the advantage fading as proficiency grows.
+  This is the concrete reason every lesson now carries a Telugu
+  translation of the target sentence (`LessonPrompt.nativeTranslation`)
+  and Telugu vocab meaning (`VocabWord.nativeMeaning`), shown to the
+  learner **before** they attempt the sentence — not just corrective
+  feedback after a mistake, which is what §6.5's `native_explanation`
+  already did.
+  ([SAGE meta-analysis](https://journals.sagepub.com/doi/full/10.1177/1362168820981394))
+
+**Honesty note on the Telugu text itself:** it was written by Claude, not
+reviewed by a certified native speaker. Standard, respectful (మీరు-register,
+matching an adult-learner audience) Telugu to the best of that ability —
+but worth a native speaker's read-through (the app's actual target users
+can do this themselves) before treating it as fully verified.
+
+### Structure
+
+The 30 days are a fixed, code-defined sequence
+(`android/.../data/roadmap/RoadmapPlan.kt`) — navigational shell, not
+content. Each day maps to a Firestore `track` (lessons) and `quizId`
+(a 5-question multiple-choice quiz, scored client-side, 70% to pass and
+unlock the next day). This pass ships real, hand-authored content for
+**Week 1 (Days 1-7)** — 40 lessons + 7 quizzes, seeded via
+`backend/scripts/seed_week1_content.py`. Days 8-30 are planned themes only
+(see the list in `RoadmapPlan.kt`), seeded in the same pattern as a
+follow-up — not fabricated shallow filler now.
+
+Week 1 themes: Greetings & Introductions → Family & People → Daily Routine
+→ Numbers, Time & Shopping → Food & Ordering → Directions & Travel →
+Health & Small Talk (review day). Quiz explanations are bilingual too — a
+short Telugu clause reinforces the English explanation after each answer,
+same "native, to help them start fast" principle as the lessons.
+
+Scoring/points: quiz passes award `xpReward` (30 XP/quiz) via the existing
+`UserProfileRepository.addXp`, same XP system lessons already used — no
+new points mechanism, just a new source of it. A failed quiz (below 70%)
+can be retaken; nothing is lost.
+
 ## 7. What this changes in Phase 1, concretely
 
 - Lesson content model: build against the schema in §2 from the start

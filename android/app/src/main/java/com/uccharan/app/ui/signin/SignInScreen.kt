@@ -19,11 +19,12 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material.icons.outlined.Circle
 import androidx.compose.material.icons.outlined.Email
 import androidx.compose.material.icons.outlined.Lock
-import androidx.compose.material.icons.outlined.Phone
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -55,15 +56,15 @@ import com.uccharan.app.di.LocalAppContainer
 import com.uccharan.app.di.uccharanViewModel
 import com.uccharan.app.ui.theme.LocalUccharanGradients
 
+// Phone sign-in (PhoneSignInScreen/PhoneSignInViewModel) is fully built and
+// tested, but hidden from the UI: Firebase Phone Auth requires the paid
+// Blaze plan (BILLING_NOT_ENABLED otherwise, no code-level workaround) and
+// this project deliberately stays on the free Spark plan. Re-enabling is a
+// two-line change — add the `showPhoneSignIn` state back and the "Continue
+// with phone number" button below — once/if the project upgrades to Blaze.
+
 @Composable
 fun SignInScreen() {
-    var showPhoneSignIn by remember { mutableStateOf(false) }
-
-    if (showPhoneSignIn) {
-        PhoneSignInScreen(onBack = { showPhoneSignIn = false })
-        return
-    }
-
     val context = LocalContext.current
     val container = LocalAppContainer.current
     val viewModel = uccharanViewModel { SignInViewModel(container.authRepository) }
@@ -130,6 +131,10 @@ fun SignInScreen() {
                 colors = uccharanTextFieldColors(),
             )
 
+            if (uiState.password.isNotEmpty()) {
+                PasswordRequirementsChecklist(password = uiState.password)
+            }
+
             uiState.errorMessage?.let { message ->
                 Text(
                     text = message,
@@ -161,12 +166,6 @@ fun SignInScreen() {
                         )
                     },
                     onClick = { viewModel.signInWithGoogle(context) },
-                )
-                Spacer(modifier = Modifier.height(12.dp))
-                SecondaryOptionButton(
-                    label = "Continue with phone number",
-                    leading = { Icon(Icons.Outlined.Phone, contentDescription = null, tint = MaterialTheme.colorScheme.onBackground) },
-                    onClick = { showPhoneSignIn = true },
                 )
             }
         }
@@ -301,6 +300,29 @@ private fun DividerWithLabel(label: String) {
             modifier = Modifier.padding(horizontal = 14.dp),
         )
         androidx.compose.material3.HorizontalDivider(modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.outline)
+    }
+}
+
+@Composable
+internal fun PasswordRequirementsChecklist(password: String) {
+    Column(modifier = Modifier.padding(top = 10.dp, start = 4.dp)) {
+        com.uccharan.app.data.validation.PASSWORD_REQUIREMENTS.forEach { requirement ->
+            val met = requirement.isMet(password)
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = 2.dp)) {
+                Icon(
+                    if (met) Icons.Filled.CheckCircle else Icons.Outlined.Circle,
+                    contentDescription = null,
+                    tint = if (met) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(14.dp),
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    requirement.label,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (met) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
     }
 }
 

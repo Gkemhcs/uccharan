@@ -2,6 +2,8 @@ package com.uccharan.app.ui.onboarding
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -36,6 +38,8 @@ import com.uccharan.app.di.LocalAppContainer
 import com.uccharan.app.di.uccharanViewModel
 import com.uccharan.app.ui.signin.uccharanTextFieldColors
 import com.uccharan.app.ui.theme.LocalUccharanGradients
+import com.uccharan.app.ui.tutor.TutorCharacter
+import com.uccharan.app.ui.tutor.TutorGender
 
 @Composable
 fun OnboardingScreen(onOnboardingComplete: () -> Unit) {
@@ -79,7 +83,12 @@ fun OnboardingScreen(onOnboardingComplete: () -> Unit) {
             Spacer(modifier = Modifier.height(26.dp))
         }
 
-        Column(modifier = Modifier.weight(1f).padding(horizontal = 28.dp)) {
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .padding(horizontal = 28.dp)
+                .verticalScroll(rememberScrollState()),
+        ) {
             Text("What's your native language?", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold)
             Spacer(modifier = Modifier.height(12.dp))
 
@@ -127,6 +136,30 @@ fun OnboardingScreen(onOnboardingComplete: () -> Unit) {
                 textStyle = MaterialTheme.typography.titleMedium,
             )
 
+            Spacer(modifier = Modifier.height(28.dp))
+            Text("Choose your tutor", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold)
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = "The same tutor will greet you everywhere in the app — you can change this later in Profile.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                TutorGenderCard(
+                    gender = TutorGender.FEMALE,
+                    selected = uiState.tutorGender == TutorGender.FEMALE,
+                    onClick = { viewModel.onTutorGenderSelected(TutorGender.FEMALE) },
+                    modifier = Modifier.weight(1f),
+                )
+                TutorGenderCard(
+                    gender = TutorGender.MALE,
+                    selected = uiState.tutorGender == TutorGender.MALE,
+                    onClick = { viewModel.onTutorGenderSelected(TutorGender.MALE) },
+                    modifier = Modifier.weight(1f),
+                )
+            }
+
             uiState.errorMessage?.let { message ->
                 Text(
                     text = message,
@@ -172,7 +205,7 @@ fun OnboardingScreen(onOnboardingComplete: () -> Unit) {
 }
 
 @Composable
-private fun LanguageChip(label: String, selected: Boolean, onClick: () -> Unit) {
+internal fun LanguageChip(label: String, selected: Boolean, onClick: () -> Unit) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -194,8 +227,30 @@ private fun LanguageChip(label: String, selected: Boolean, onClick: () -> Unit) 
     }
 }
 
+/** Reused from Profile's "Edit preferences" too, so choosing a tutor looks and behaves identically wherever it's offered. */
 @Composable
-private fun SuggestionChip(label: String, selected: Boolean, onClick: () -> Unit) {
+internal fun TutorGenderCard(gender: TutorGender, selected: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = modifier
+            .clip(RoundedCornerShape(16.dp))
+            .background(if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface)
+            .clickable(onClick = onClick)
+            .padding(vertical = 14.dp),
+    ) {
+        TutorCharacter(gender = gender, avatarSize = 64.dp, animated = selected)
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            gender.label,
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.Bold,
+            color = if (selected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+@Composable
+internal fun SuggestionChip(label: String, selected: Boolean, onClick: () -> Unit) {
     Box(
         modifier = Modifier
             .clip(RoundedCornerShape(12.dp))

@@ -26,14 +26,37 @@ class UserProfileRepository(
         uid: String,
         nativeLanguage: String?,
         preferredAddressTerm: String?,
+        tutorGender: String?,
     ): Result<Unit> = runCatching {
         userDoc(uid).update(
             mapOf(
                 "nativeLanguage" to nativeLanguage,
                 "preferredAddressTerm" to preferredAddressTerm,
+                "tutorGender" to tutorGender,
                 "onboardingComplete" to true,
             ),
         ).await()
+    }
+
+    /** Updates language/address-term/tutor-gender preferences from Settings, without touching onboarding status. */
+    suspend fun updatePreferences(
+        uid: String,
+        nativeLanguage: String?,
+        preferredAddressTerm: String?,
+        tutorGender: String?,
+    ): Result<Unit> = runCatching {
+        userDoc(uid).update(
+            mapOf(
+                "nativeLanguage" to nativeLanguage,
+                "preferredAddressTerm" to preferredAddressTerm,
+                "tutorGender" to tutorGender,
+            ),
+        ).await()
+    }
+
+    /** Called when a day's quiz is passed, so Home shows the next day's lessons from then on. */
+    suspend fun advanceToTrack(uid: String, track: String): Result<Unit> = runCatching {
+        userDoc(uid).update("currentTrack", track).await()
     }
 
     suspend fun addXp(uid: String, amount: Int): Result<Unit> = runCatching {

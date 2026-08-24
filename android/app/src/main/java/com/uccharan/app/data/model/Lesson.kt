@@ -12,10 +12,14 @@ package com.uccharan.app.data.model
 data class VocabWord(
     val word: String = "",
     val meaning: String = "",
+    /** Telugu meaning — research backs L1 glosses over L2-only definitions for beginners (see CURRICULUM.md §8). */
+    val nativeMeaning: String = "",
 )
 
 data class LessonPrompt(
     val targetSentence: String = "",
+    /** Telugu translation of targetSentence, shown before the learner attempts it — not a post-mistake correction. */
+    val nativeTranslation: String = "",
     val focusSounds: List<String> = emptyList(),
     val vocabIntroduced: List<VocabWord> = emptyList(),
     val grammarNote: String = "",

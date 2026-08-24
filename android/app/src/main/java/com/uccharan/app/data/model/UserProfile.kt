@@ -10,6 +10,8 @@ data class UserProfile(
     val email: String = "",
     val nativeLanguage: String? = null,
     val preferredAddressTerm: String? = null,
+    /** "male" | "female" | null (unset — [com.uccharan.app.ui.tutor.tutorGenderFromStorage] defaults to female). Purely a visual/identity choice, never sent to the backend. */
+    val tutorGender: String? = null,
     val onboardingComplete: Boolean = false,
     val currentTrack: String = "foundations",
     val xp: Int = 0,

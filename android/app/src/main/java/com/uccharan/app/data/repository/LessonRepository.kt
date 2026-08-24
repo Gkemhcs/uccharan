@@ -40,6 +40,23 @@ class LessonRepository(
             .await()
     }
 
+    /**
+     * Marks several lessons complete in one batch — used by "skip this section"
+     * so a learner who already knows the basics can bypass a whole track
+     * without stepping through each lesson individually. No XP is awarded,
+     * since nothing was actually demonstrated.
+     */
+    suspend fun markLessonsComplete(uid: String, lessonIds: List<String>): Result<Unit> = runCatching {
+        if (lessonIds.isEmpty()) return@runCatching
+        val batch = firestore.batch()
+        val completedLessons = firestore.collection("users").document(uid).collection("completedLessons")
+        lessonIds.forEach { lessonId ->
+            batch.set(completedLessons.document(lessonId), mapOf("completedAt" to com.google.firebase.firestore.FieldValue.serverTimestamp()))
+        }
+        batch.commit().await()
+        Unit
+    }
+
     suspend fun getCompletedLessonIds(uid: String): Result<Set<String>> = runCatching {
         firestore.collection("users").document(uid)
             .collection("completedLessons")

@@ -38,12 +38,12 @@ class AuthRepository(
     suspend fun signUpWithEmail(email: String, password: String): Result<FirebaseUser> = runCatching {
         firebaseAuth.createUserWithEmailAndPassword(email, password).await().user
             ?: error("Sign-up succeeded but returned no user")
-    }
+    }.withFriendlyAuthError()
 
     suspend fun signInWithEmail(email: String, password: String): Result<FirebaseUser> = runCatching {
         firebaseAuth.signInWithEmailAndPassword(email, password).await().user
             ?: error("Sign-in succeeded but returned no user")
-    }
+    }.withFriendlyAuthError()
 
     /**
      * Launches the system Sign in with Google sheet via Credential Manager,
@@ -77,15 +77,20 @@ class AuthRepository(
         val firebaseCredential = GoogleAuthProvider.getCredential(googleIdToken, null)
         firebaseAuth.signInWithCredential(firebaseCredential).await().user
             ?: error("Google sign-in succeeded but returned no Firebase user")
-    }
+    }.withFriendlyAuthError()
 
     /** Exchanges a phone verification credential (auto-verified or OTP-built) for a Firebase session. */
     suspend fun signInWithPhoneCredential(credential: PhoneAuthCredential): Result<FirebaseUser> = runCatching {
         firebaseAuth.signInWithCredential(credential).await().user
             ?: error("Phone sign-in succeeded but returned no user")
-    }
+    }.withFriendlyAuthError()
 
     fun signOut() {
         firebaseAuth.signOut()
     }
+
+    private fun <T> Result<T>.withFriendlyAuthError(): Result<T> = fold(
+        onSuccess = { Result.success(it) },
+        onFailure = { Result.failure(Exception(friendlyAuthErrorMessage(it), it)) },
+    )
 }

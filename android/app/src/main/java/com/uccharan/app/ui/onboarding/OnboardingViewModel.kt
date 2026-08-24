@@ -4,6 +4,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.uccharan.app.data.repository.AuthRepository
 import com.uccharan.app.data.repository.UserProfileRepository
+import com.uccharan.app.ui.tutor.TutorGender
+import com.uccharan.app.ui.tutor.toStorageValue
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -20,6 +22,7 @@ val SUPPORTED_NATIVE_LANGUAGES = listOf("Telugu", "Hindi", "Tamil", "Kannada", "
 data class OnboardingUiState(
     val selectedLanguage: String? = null,
     val preferredAddressTerm: String = "",
+    val tutorGender: TutorGender? = null,
     val isSaving: Boolean = false,
     val errorMessage: String? = null,
 )
@@ -37,21 +40,24 @@ class OnboardingViewModel(
 
     fun onAddressTermChange(term: String) = _uiState.update { it.copy(preferredAddressTerm = term) }
 
-    fun onSkip() = save(nativeLanguage = null, addressTerm = null)
+    fun onTutorGenderSelected(gender: TutorGender) = _uiState.update { it.copy(tutorGender = gender) }
+
+    fun onSkip() = save(nativeLanguage = null, addressTerm = null, tutorGender = null)
 
     fun onContinue() {
         val state = _uiState.value
         save(
             nativeLanguage = state.selectedLanguage,
             addressTerm = state.preferredAddressTerm.ifBlank { null },
+            tutorGender = state.tutorGender,
         )
     }
 
-    private fun save(nativeLanguage: String?, addressTerm: String?) {
+    private fun save(nativeLanguage: String?, addressTerm: String?, tutorGender: TutorGender?) {
         val uid = authRepository.currentUser?.uid ?: return
         _uiState.update { it.copy(isSaving = true, errorMessage = null) }
         viewModelScope.launch {
-            userProfileRepository.completeOnboarding(uid, nativeLanguage, addressTerm)
+            userProfileRepository.completeOnboarding(uid, nativeLanguage, addressTerm, tutorGender?.toStorageValue())
                 .onSuccess { onComplete() }
                 .onFailure { error ->
                     _uiState.update { it.copy(isSaving = false, errorMessage = error.message ?: "Couldn't save, try again") }

@@ -1,15 +1,14 @@
 package com.uccharan.app.ui.lesson
 
 import android.Manifest
-import android.content.Intent
 import android.content.pm.PackageManager
-import android.os.Bundle
-import android.speech.RecognitionListener
-import android.speech.RecognizerIntent
-import android.speech.SpeechRecognizer
 import android.speech.tts.TextToSpeech
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -20,6 +19,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -37,6 +37,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -47,15 +48,23 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import com.uccharan.app.data.remote.CorrectionResult
 import com.uccharan.app.di.LocalAppContainer
 import com.uccharan.app.di.uccharanViewModel
+import com.uccharan.app.ui.speech.startListening
 import com.uccharan.app.ui.theme.LocalUccharanGradients
+import com.uccharan.app.ui.tutor.TutorCharacter
+import com.uccharan.app.ui.tutor.TutorGender
 import java.util.Locale
+
+/** Native-language explanations are read back in Telugu, not English TTS's accent. */
+private val TELUGU_LOCALE: Locale = Locale.Builder().setLanguage("te").setRegion("IN").build()
 
 @Composable
 fun LessonScreen(lessonId: String, onLessonFinished: () -> Unit) {
@@ -76,7 +85,7 @@ fun LessonScreen(lessonId: String, onLessonFinished: () -> Unit) {
 
     val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         if (granted) {
-            startListening(context, viewModel)
+            startListening(context, viewModel::onListeningStarted, viewModel::onSpeechError, viewModel::onSpeechRecognized)
         } else {
             viewModel.onSpeechError("Microphone permission is needed to practice speaking.")
         }
@@ -86,7 +95,7 @@ fun LessonScreen(lessonId: String, onLessonFinished: () -> Unit) {
         val hasPermission = ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) ==
             PackageManager.PERMISSION_GRANTED
         if (hasPermission) {
-            startListening(context, viewModel)
+            startListening(context, viewModel::onListeningStarted, viewModel::onSpeechError, viewModel::onSpeechRecognized)
         } else {
             permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
         }
@@ -156,6 +165,14 @@ fun LessonScreen(lessonId: String, onLessonFinished: () -> Unit) {
                             }
                         }
                     }
+                    if (lesson.prompt.nativeTranslation.isNotBlank() && uiState.correctionResult == null) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = lesson.prompt.nativeTranslation,
+                            style = MaterialTheme.typography.bodyLarge.copy(fontFamily = com.uccharan.app.ui.theme.NotoSansTelugu),
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                    }
                     if (lesson.prompt.grammarNote.isNotBlank() && uiState.correctionResult == null) {
                         Spacer(modifier = Modifier.height(10.dp))
                         Text(
@@ -174,7 +191,15 @@ fun LessonScreen(lessonId: String, onLessonFinished: () -> Unit) {
                     }
 
                     uiState.correctionResult?.let { result ->
-                        FeedbackCard(spokenText = uiState.lastSpokenText.orEmpty(), result = result)
+                        FeedbackCard(
+                            spokenText = uiState.lastSpokenText.orEmpty(),
+                            result = result,
+                            tutorGender = uiState.tutorGender,
+                            onPlayNative = {
+                                textToSpeech?.language = TELUGU_LOCALE
+                                textToSpeech?.speak(result.nativeExplanation.orEmpty(), TextToSpeech.QUEUE_FLUSH, null, null)
+                            },
+                        )
                         Spacer(modifier = Modifier.height(18.dp))
                     }
                 }
@@ -187,8 +212,18 @@ fun LessonScreen(lessonId: String, onLessonFinished: () -> Unit) {
                         uiState.correctionResult != null && uiState.correctionResult?.isCorrect == false -> Box(modifier = Modifier.padding(horizontal = 24.dp)) {
                             GradientCta(text = "Try again", icon = Icons.Filled.Refresh, onClick = viewModel::retry, brush = gradients.primaryButton)
                         }
-                        uiState.isCheckingAttempt -> Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                        uiState.isCheckingAttempt -> Column(modifier = Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
                             CircularProgressIndicator()
+                            if (uiState.isWakingUp) {
+                                Spacer(modifier = Modifier.height(10.dp))
+                                Text(
+                                    "Your tutor's server is waking up — this can take up to a minute on free hosting…",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    textAlign = TextAlign.Center,
+                                    modifier = Modifier.padding(horizontal = 32.dp),
+                                )
+                            }
                         }
                         else -> Column(modifier = Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
                             if (uiState.isListening) {
@@ -212,7 +247,7 @@ fun LessonScreen(lessonId: String, onLessonFinished: () -> Unit) {
 }
 
 @Composable
-private fun MicButton(isListening: Boolean, onClick: () -> Unit) {
+internal fun MicButton(isListening: Boolean, onClick: () -> Unit) {
     val gradients = LocalUccharanGradients.current
     val brush = if (isListening) gradients.listening else gradients.primaryButton
     val glow = if (isListening) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
@@ -236,7 +271,7 @@ private fun MicButton(isListening: Boolean, onClick: () -> Unit) {
 }
 
 @Composable
-private fun SoundWave() {
+internal fun SoundWave() {
     val heights = listOf(10, 22, 14, 32, 18, 26, 12)
     Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
         heights.forEach { h ->
@@ -271,14 +306,35 @@ private fun GradientCta(text: String, icon: androidx.compose.ui.graphics.vector.
 }
 
 @Composable
-private fun FeedbackCard(spokenText: String, result: CorrectionResult) {
+private fun FeedbackCard(spokenText: String, result: CorrectionResult, tutorGender: TutorGender, onPlayNative: () -> Unit) {
     val isCorrect = result.isCorrect
     val containerColor = if (isCorrect) MaterialTheme.colorScheme.tertiaryContainer else MaterialTheme.colorScheme.errorContainer
     val onContainerColor = if (isCorrect) MaterialTheme.colorScheme.onTertiaryContainer else MaterialTheme.colorScheme.onErrorContainer
 
+    // Every attempt is its own small achievement/miss beat — a quick scale+fade
+    // entrance so the feedback doesn't just silently appear, keyed on the
+    // result itself so a retry (a new CorrectionResult) plays it again.
+    val entrance = remember(result) { Animatable(0f) }
+    val badgeShakeX = remember(result) { Animatable(0f) }
+    LaunchedEffect(result) {
+        entrance.animateTo(1f, animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMedium))
+        if (!isCorrect) {
+            repeat(2) {
+                badgeShakeX.animateTo(6f, tween(50))
+                badgeShakeX.animateTo(-6f, tween(50))
+            }
+            badgeShakeX.animateTo(0f, tween(50))
+        }
+    }
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
+            .graphicsLayer {
+                scaleX = 0.9f + 0.1f * entrance.value
+                scaleY = 0.9f + 0.1f * entrance.value
+                alpha = entrance.value
+            }
             .shadow(elevation = 10.dp, shape = RoundedCornerShape(22.dp))
             .clip(RoundedCornerShape(22.dp))
             .background(containerColor)
@@ -288,6 +344,7 @@ private fun FeedbackCard(spokenText: String, result: CorrectionResult) {
             Box(
                 modifier = Modifier
                     .size(34.dp)
+                    .offset(x = badgeShakeX.value.dp)
                     .clip(CircleShape)
                     .background(if (isCorrect) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.error),
                 contentAlignment = Alignment.Center,
@@ -304,6 +361,10 @@ private fun FeedbackCard(spokenText: String, result: CorrectionResult) {
                 style = MaterialTheme.typography.titleMedium,
                 color = onContainerColor,
             )
+            if (isCorrect) {
+                Spacer(modifier = Modifier.weight(1f))
+                TutorCharacter(gender = tutorGender, avatarSize = 40.dp)
+            }
         }
         Spacer(modifier = Modifier.height(14.dp))
         Text("YOU SAID", style = MaterialTheme.typography.labelSmall, color = onContainerColor)
@@ -317,50 +378,30 @@ private fun FeedbackCard(spokenText: String, result: CorrectionResult) {
                 modifier = Modifier.padding(vertical = 16.dp),
                 color = onContainerColor.copy(alpha = 0.2f),
             )
-            Text(native, style = MaterialTheme.typography.bodyLarge, color = onContainerColor)
+            Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(
+                    native,
+                    style = MaterialTheme.typography.bodyLarge.copy(fontFamily = com.uccharan.app.ui.theme.NotoSansTelugu),
+                    color = onContainerColor,
+                    modifier = Modifier.weight(1f),
+                )
+                Box(
+                    modifier = Modifier
+                        .size(32.dp)
+                        .clip(CircleShape)
+                        .background(onContainerColor.copy(alpha = 0.12f))
+                        .clickable(onClick = onPlayNative),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        Icons.AutoMirrored.Filled.VolumeUp,
+                        contentDescription = "Listen in Telugu",
+                        tint = onContainerColor,
+                        modifier = Modifier.size(15.dp),
+                    )
+                }
+            }
         }
     }
 }
 
-/**
- * SpeechRecognizer is callback-based and framework-bound, so it's driven from
- * here (UI layer) rather than the ViewModel — the ViewModel only receives the
- * final recognized text via [LessonViewModel.onSpeechRecognized], keeping it
- * unit-testable without any Android framework dependency.
- */
-private fun startListening(context: android.content.Context, viewModel: LessonViewModel) {
-    if (!SpeechRecognizer.isRecognitionAvailable(context)) {
-        viewModel.onSpeechError("Speech recognition isn't available on this device.")
-        return
-    }
-
-    viewModel.onListeningStarted()
-    val recognizer = SpeechRecognizer.createSpeechRecognizer(context)
-    val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-        putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-        putExtra(RecognizerIntent.EXTRA_LANGUAGE, "en-US")
-    }
-
-    recognizer.setRecognitionListener(object : RecognitionListener {
-        override fun onResults(results: Bundle) {
-            val text = results.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull()
-            if (text != null) viewModel.onSpeechRecognized(text) else viewModel.onSpeechError("Didn't catch that — try again.")
-            recognizer.destroy()
-        }
-
-        override fun onError(error: Int) {
-            viewModel.onSpeechError("Didn't catch that — try again.")
-            recognizer.destroy()
-        }
-
-        override fun onReadyForSpeech(params: Bundle?) = Unit
-        override fun onBeginningOfSpeech() = Unit
-        override fun onRmsChanged(rmsdB: Float) = Unit
-        override fun onBufferReceived(buffer: ByteArray?) = Unit
-        override fun onEndOfSpeech() = Unit
-        override fun onPartialResults(partialResults: Bundle?) = Unit
-        override fun onEvent(eventType: Int, params: Bundle?) = Unit
-    })
-
-    recognizer.startListening(intent)
-}

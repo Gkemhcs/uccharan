@@ -22,6 +22,25 @@ val AmberTertiaryDark = Color(0xFFFFB951)
 val AmberTertiaryContainerLight = Color(0xFFFFDDB3)
 val AmberTertiaryContainerDark = Color(0xFF6B3D00)
 
+// Content color on top of a *solid* tertiary/tertiaryContainer fill — was
+// previously left unset, silently falling back to Material3's baseline pink
+// "onTertiary" tokens, which read as barely-legible dark-on-dark or
+// low-contrast text against this app's warm-amber palette (found live on a
+// physical device: the "Practice with your Tutor" card was nearly invisible).
+val OnAmberTertiaryLight = Color(0xFFFFFFFF)
+val OnAmberTertiaryDark = Color(0xFF4A2E00)
+val OnAmberTertiaryContainerLight = Color(0xFF2E1D00)
+val OnAmberTertiaryContainerDark = Color(0xFFFFDDB3)
+
+// Content color specifically for `UccharanGradients.amberBadge` — kept
+// separate from OnAmberTertiary* above on purpose: the badge gradient is
+// LIGHT in light theme but DARK in dark theme (a celebratory "always warm
+// cream-on-brown or brown-on-cream" look), the opposite of how solid
+// `tertiary` flips between themes — reusing one "on" token for both would
+// put dark text on a dark background in one of the two themes.
+val OnAmberBadgeLight = Color(0xFF3D2800)
+val OnAmberBadgeDark = Color(0xFFFFE7BE)
+
 // Neutral surfaces
 val BackgroundLight = Color(0xFFFAFDFB)
 val BackgroundDark = Color(0xFF0E1514)

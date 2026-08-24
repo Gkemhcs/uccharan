@@ -27,7 +27,7 @@ data class CorrectionResult(
 class CorrectionApi(
     private val client: OkHttpClient = OkHttpClient.Builder()
         .connectTimeout(10, TimeUnit.SECONDS)
-        .readTimeout(30, TimeUnit.SECONDS) // Gemini calls + a cold Render free-tier start can be slow
+        .readTimeout(60, TimeUnit.SECONDS) // Gemini calls + a cold Render free-tier start (can take the better part of a minute) can be slow
         .build(),
     private val baseUrl: String = BackendConfig.baseUrl,
 ) {
@@ -62,9 +62,25 @@ class CorrectionApi(
                 CorrectionResult(
                     isCorrect = json.getBoolean("is_correct"),
                     feedback = json.getString("feedback"),
-                    nativeExplanation = json.optString("native_explanation", "").ifEmpty { null },
+                    nativeExplanation = json.optNullableString("native_explanation"),
                 )
             }
-        }
+        }.withFriendlyBackendError()
+    }
+
+    /**
+     * `optString(key, "")` is NOT a safe way to read a nullable field: when
+     * the JSON value is explicitly `null` (which `native_explanation: str |
+     * None = None` serializes to whenever it's unset, e.g. no native
+     * language on the profile), org.json's `optString` returns the literal
+     * 4-character string `"null"` instead of the empty-string fallback,
+     * since it calls `.toString()` on the JSONObject.NULL sentinel rather
+     * than treating it as absent — the same bug confirmed live in
+     * `PracticeApi`'s correction bubble ("💡 null"). `isNull(key)` is the
+     * actual correct way to detect both a missing key and an explicit null.
+     */
+    private fun JSONObject.optNullableString(key: String): String? {
+        if (isNull(key)) return null
+        return optString(key, "").ifEmpty { null }
     }
 }
